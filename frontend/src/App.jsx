@@ -2847,7 +2847,7 @@ function AboutModal({ isOpen, onClose }) {
 
           <div className="about-author-line">
             by <a
-              href="https://github.com/florianbuetow"
+              href="https://github.com/florianbuetow/touchtask"
               target="_blank"
               rel="noopener noreferrer"
             >F Buetow</a>
