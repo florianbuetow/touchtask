@@ -50,7 +50,11 @@ The built files will be in the `dist` folder. These are static files that can be
 
 ## Documentation
 
-For a complete user guide and tutorial, see [docs/TUTORIAL.md](docs/TUTORIAL.md).
+A video overview of the TouchTask UI and how to use its features:
+
+[![TouchTask UI Overview](https://img.youtube.com/vi/Bihlr5uGq8g/0.jpg)](https://www.youtube.com/watch?v=Bihlr5uGq8g)
+
+For a text based user guide and tutorial, see [docs/TUTORIAL.md](docs/TUTORIAL.md).
 
 ---
 
