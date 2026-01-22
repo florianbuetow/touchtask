@@ -1,0 +1,26 @@
+:root {
+    --ink: #1a1a1a;
+    --paper: #f7f5f0;
+    --paper-dark: #eae6dd;
+    --accent: #c41e3a;
+    --muted: #6b6b6b;
+    --rule: #d4d0c8;
+    --success: #2d5a3d;
+    --success-light: #e8f5e9;
+    --card-radius: 16px;
+    --pill-radius: 10px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Source Serif 4', Georgia, serif;
+    background: var(--paper-dark);
+    color: var(--ink);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+#root {
+    min-height: 100vh;
+}
