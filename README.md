@@ -48,6 +48,29 @@ The built files will be in the `dist` folder. These are static files that can be
 
 ---
 
+## Folder Structure
+
+```
+touchtask/
+├── dist/                  # Production build output
+│   ├── assets/            # Compiled JS/CSS bundles
+│   └── index.html         # Entry point
+├── docs/                  # Documentation
+│   └── gfx/               # Screenshots and images
+├── frontend/              # React application source
+│   ├── public/            # Static assets
+│   └── src/               # Source code
+│       ├── assets/        # Images, fonts, etc.
+│       ├── App.jsx        # Main app component
+│       └── main.jsx       # Entry point
+├── .gitignore
+├── .nvmrc                 # Node version
+├── justfile               # Task runner commands
+└── README.md
+```
+
+---
+
 ## Documentation
 
 A video overview of the TouchTask UI and how to use its features:

@@ -11,6 +11,7 @@ help:
     @echo "  build   - Build the React frontend for production"
     @echo "  preview - Preview the production build"
     @echo "  clean   - Remove node_modules and build artifacts"
+    @echo "  deploy  - Deploy dist to GitHub Pages"
     @echo "  help    - Show this help message"
     @echo "<<< Finished: help"
     @echo ""
@@ -55,4 +56,12 @@ clean:
     @echo ">>> Starting: clean"
     rm -rf frontend/node_modules dist
     @echo "<<< Finished: clean"
+    @echo ""
+
+# Deploy dist to GitHub Pages
+deploy:
+    @echo ""
+    @echo ">>> Starting: deploy"
+    git subtree push --prefix dist origin gh-pages
+    @echo "<<< Finished: deploy"
     @echo ""
