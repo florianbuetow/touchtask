@@ -213,3 +213,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Tauri build artifacts
+frontend/src-tauri/target/
+*.app
+*.exe
+*.deb
+*.AppImage
+*.rpm
