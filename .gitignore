@@ -6,6 +6,9 @@ reports/
 .lighthouseci/
 .playwright-mcp/
 
+# Plans and design docs
+docs/plans/
+
 # IDE
 .cursor/
 
