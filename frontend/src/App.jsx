@@ -305,6 +305,50 @@ const getDefaultMeetings = () => ({
   ]
 })
 
+const getDefaultHabitTracker = () => {
+  const days = getPast30Days()
+  const pick = (bias) => {
+    const r = Math.random()
+    if (r < bias) return 'green'
+    if (r < bias + 0.15) return 'orange'
+    if (r < bias + 0.3) return null
+    return 'red'
+  }
+  const buildEntries = (bias) => {
+    const entries = {}
+    days.forEach(d => {
+      const val = pick(bias)
+      if (val) entries[d.dateStr] = val
+    })
+    return entries
+  }
+  return {
+    habits: [
+      {
+        id: generateId(),
+        name: 'Exercise',
+        description: '30 min workout or run',
+        created_at: new Date().toISOString(),
+        entries: buildEntries(0.55)
+      },
+      {
+        id: generateId(),
+        name: 'Reading',
+        description: '20 pages before bed',
+        created_at: new Date().toISOString(),
+        entries: buildEntries(0.45)
+      },
+      {
+        id: generateId(),
+        name: 'Meditation',
+        description: '10 min morning session',
+        created_at: new Date().toISOString(),
+        entries: buildEntries(0.4)
+      }
+    ]
+  }
+}
+
 const loadMasterBlocks = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.MASTER_BLOCKS)
@@ -1083,10 +1127,10 @@ function App() {
     saveMeetings(demoMeetings)
     setMeetings(demoMeetings)
 
-    // Reset habit tracker (no demo data for habits)
-    const emptyHabitTracker = { habits: [] }
-    saveHabitTracker(emptyHabitTracker)
-    setHabitTracker(emptyHabitTracker)
+    // Load demo habit tracker
+    const demoHabitTracker = getDefaultHabitTracker()
+    saveHabitTracker(demoHabitTracker)
+    setHabitTracker(demoHabitTracker)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
