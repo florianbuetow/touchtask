@@ -1,5 +1,7 @@
 # TouchTask
 
+![Made with AI](https://img.shields.io/badge/Made%20with-AI-333333?labelColor=f00) ![Verified by Humans](https://img.shields.io/badge/Verified%20by-Humans-333333?labelColor=brightgreen)
+
 A minimalist productivity app that helps you structure your day with time blocks, habits, and focused work sessions. TouchTask combines time blocking, habit tracking, pomodoro timing, and kanban task management into a single, elegant interface.
 
 ![TouchTask Main Interface](docs/gfx/main-interface.jpg)
