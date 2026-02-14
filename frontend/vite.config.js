@@ -10,10 +10,10 @@ export default defineConfig({
     emptyDirFirst: true
   },
   server: {
-    port: 8000,
+    strictPort: true,
     host: true
   },
   preview: {
-    port: 8000
+    strictPort: true
   }
 })
