@@ -2659,6 +2659,97 @@ function AddMeetingModal({ isOpen, onClose, onSave, onDelete, editingMeeting }) 
 }
 
 // ============================================
+// ADD/EDIT HABIT MODAL
+// ============================================
+
+function AddHabitModal({ isOpen, onClose, onSave, onDelete, editingHabit }) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+
+  useEffect(() => {
+    if (editingHabit) {
+      setName(editingHabit.name || '')
+      setDescription(editingHabit.description || '')
+    } else {
+      setName('')
+      setDescription('')
+    }
+  }, [editingHabit, isOpen])
+
+  const handleSave = () => {
+    if (!name.trim()) {
+      alert('Please enter a habit name')
+      return
+    }
+    onSave({ name: name.trim(), description: description.trim() })
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  const isEditing = !!editingHabit
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">{isEditing ? 'Edit Habit' : 'Add Habit'}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Habit Name</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g., Meditation"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Description (optional)</label>
+            <textarea
+              className="form-input form-textarea"
+              placeholder="What does this habit involve?"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          {isEditing && onDelete && (
+            <button className="btn btn-danger" onClick={() => setDeleteConfirmOpen(true)}>Delete</button>
+          )}
+          <div className="modal-footer-right">
+            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave}>{isEditing ? 'Save Changes' : 'Add Habit'}</button>
+          </div>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => {
+          setDeleteConfirmOpen(false)
+          onDelete()
+          onClose()
+        }}
+        title="Delete Habit"
+        message={`Are you sure you want to delete "${name}"? All tracking data for this habit will be lost.`}
+      />
+    </div>
+  )
+}
+
+// ============================================
 // MEETINGS SECTION COMPONENT
 // ============================================
 
