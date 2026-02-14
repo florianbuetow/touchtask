@@ -575,6 +575,17 @@ function App() {
     return () => window.removeEventListener('resize', updatePosition)
   }, [habitDrawerOpen])
 
+  // Close habit drawer on click outside
+  useEffect(() => {
+    if (!habitDrawerOpen) return
+    const handleClickOutside = (e) => {
+      if (e.target.closest('.habit-tracker-drawer') || e.target.closest('.habit-tracker-trigger') || e.target.closest('.modal-overlay')) return
+      setHabitDrawerOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [habitDrawerOpen])
+
   // ============================================
   // DAILY STATE HANDLERS
   // ============================================
