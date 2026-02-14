@@ -1052,6 +1052,60 @@ function App() {
   }
 
   // ============================================
+  // HABIT TRACKER HANDLERS
+  // ============================================
+
+  const addHabit = (habitData) => {
+    const newHabit = {
+      id: generateId(),
+      name: habitData.name.trim(),
+      description: (habitData.description || '').trim(),
+      created_at: new Date().toISOString(),
+      entries: {}
+    }
+    const updated = { habits: [...habitTracker.habits, newHabit] }
+    setHabitTracker(updated)
+    saveHabitTracker(updated)
+  }
+
+  const updateHabit = (id, habitData) => {
+    const updated = {
+      habits: habitTracker.habits.map(h =>
+        h.id === id ? { ...h, name: habitData.name.trim(), description: (habitData.description || '').trim() } : h
+      )
+    }
+    setHabitTracker(updated)
+    saveHabitTracker(updated)
+  }
+
+  const deleteHabit = (id) => {
+    const updated = { habits: habitTracker.habits.filter(h => h.id !== id) }
+    setHabitTracker(updated)
+    saveHabitTracker(updated)
+  }
+
+  const toggleHabitEntry = (habitId, dateStr) => {
+    const cycle = [null, 'green', 'orange', 'red']
+    const updated = {
+      habits: habitTracker.habits.map(h => {
+        if (h.id !== habitId) return h
+        const current = h.entries[dateStr] || null
+        const nextIndex = (cycle.indexOf(current) + 1) % cycle.length
+        const next = cycle[nextIndex]
+        const newEntries = { ...h.entries }
+        if (next === null) {
+          delete newEntries[dateStr]
+        } else {
+          newEntries[dateStr] = next
+        }
+        return { ...h, entries: newEntries }
+      })
+    }
+    setHabitTracker(updated)
+    saveHabitTracker(updated)
+  }
+
+  // ============================================
   // MEETINGS HANDLERS
   // ============================================
 
