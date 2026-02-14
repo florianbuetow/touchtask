@@ -37,10 +37,7 @@
 
 .menu-backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 99;
 }
 
@@ -51,7 +48,7 @@
     margin-top: 0.5rem;
     background: var(--paper);
     border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 20px rgb(0 0 0 / 15%);
     min-width: 140px;
     z-index: 100;
     overflow: hidden;
@@ -190,7 +187,7 @@
     background: var(--paper);
     border-radius: var(--card-radius);
     padding: 1rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
     margin-bottom: 1rem;
 }
 
@@ -211,8 +208,7 @@
 
 .meetings-list {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
     gap: 0.5rem;
 }
 
@@ -337,7 +333,7 @@
 .task-block {
     background: var(--paper);
     border-radius: var(--card-radius);
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
     overflow: hidden;
     position: relative;
     cursor: pointer;
@@ -345,7 +341,7 @@
 }
 
 .task-block:hover {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 20px rgb(0 0 0 / 10%);
 }
 
 .task-block-expanded {
@@ -710,11 +706,8 @@
 .modal-overlay {
     display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgb(0 0 0 / 50%);
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -725,7 +718,7 @@
 .modal {
     background: var(--paper);
     border-radius: var(--card-radius);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 40px rgb(0 0 0 / 20%);
     max-width: 500px;
     width: 90%;
     max-height: 80vh;
@@ -955,7 +948,7 @@
     background: var(--paper);
     border-radius: var(--card-radius);
     padding: 1.25rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
     margin-bottom: 1rem;
 }
 
@@ -1050,7 +1043,7 @@
     background: var(--paper);
     border-radius: var(--card-radius);
     padding: 1.25rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
     margin-bottom: 1rem;
 }
 
@@ -1171,7 +1164,7 @@
 
 .drop-zone.drag-over {
     border-color: var(--accent);
-    background: rgba(196, 30, 58, 0.05);
+    background: rgb(196 30 58 / 5%);
     border-style: solid;
 }
 
@@ -1204,6 +1197,7 @@
 
 .drop-zone.has-task .drop-placeholder { display: none; }
 .drop-zone.has-task .active-task-display { display: block; }
+
 .drop-zone.break-mode .drop-placeholder,
 .drop-zone.break-mode .active-task-display { display: none; }
 .drop-zone.break-mode .break-display { display: block; }
@@ -1320,7 +1314,7 @@
     background: var(--paper);
     border-radius: var(--card-radius);
     padding: 1.25rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -1391,7 +1385,7 @@
 
 .kanban-task:hover {
     background: var(--paper);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
     border-color: var(--ink);
 }
 
@@ -1619,7 +1613,7 @@
 
 .column-action.clear-action:hover {
     border-color: var(--accent);
-    background: rgba(196, 30, 58, 0.05);
+    background: rgb(196 30 58 / 5%);
     color: var(--accent);
 }
 
@@ -1665,12 +1659,12 @@
 /* Hide number input spinners */
 .no-spinner::-webkit-outer-spin-button,
 .no-spinner::-webkit-inner-spin-button {
-    -webkit-appearance: none;
+    appearance: none;
     margin: 0;
 }
 
 .no-spinner {
-    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 .time-input-separator {
@@ -1688,7 +1682,7 @@
     font-style: italic;
 }
 
-@media (max-width: 1200px) {
+@media (width <= 1200px) {
     .main-layout { grid-template-columns: 1fr; }
     .kanban-section { order: -1; max-height: 500px; }
 }
