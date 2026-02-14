@@ -14,6 +14,21 @@ const getTodayString = () => new Date().toISOString().split('T')[0]
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const getToday = () => new Date().getDay()
 
+const getPast30Days = () => {
+  const days = []
+  const today = new Date()
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    days.push({
+      dateStr: d.toISOString().split('T')[0],
+      dayOfWeek: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][d.getDay()],
+      isToday: i === 0
+    })
+  }
+  return days
+}
+
 const formatTime = (minutes) => {
   if (minutes === 0) return '0m'
   const h = Math.floor(minutes / 60)
@@ -2745,6 +2760,67 @@ function AddHabitModal({ isOpen, onClose, onSave, onDelete, editingHabit }) {
         title="Delete Habit"
         message={`Are you sure you want to delete "${name}"? All tracking data for this habit will be lost.`}
       />
+    </div>
+  )
+}
+
+// ============================================
+// HABIT TRACKER DRAWER COMPONENT
+// ============================================
+
+function HabitTrackerDrawer({ isOpen, habits, onToggleEntry, onEditHabit }) {
+  const days = getPast30Days()
+
+  if (habits.length === 0) {
+    return (
+      <div className="habit-tracker-empty">
+        No habits yet. Click "+ Add" to start tracking.
+      </div>
+    )
+  }
+
+  return (
+    <div className="habit-tracker-grid">
+      {/* Day labels header row */}
+      <div className="habit-tracker-row habit-tracker-header-row">
+        <div className="habit-tracker-days">
+          {days.map(day => (
+            <div
+              key={day.dateStr}
+              className={`habit-tracker-day-label ${day.isToday ? 'today' : ''}`}
+            >
+              {day.dayOfWeek}
+            </div>
+          ))}
+        </div>
+        <div className="habit-tracker-name-spacer" />
+      </div>
+
+      {/* Habit rows */}
+      {habits.map(habit => (
+        <div key={habit.id} className="habit-tracker-row">
+          <div className="habit-tracker-days">
+            {days.map(day => {
+              const state = habit.entries[day.dateStr] || null
+              return (
+                <button
+                  key={day.dateStr}
+                  className={`habit-tracker-btn ${state || 'neutral'}`}
+                  onClick={() => onToggleEntry(habit.id, day.dateStr)}
+                  title={`${day.dayOfWeek} ${day.dateStr}`}
+                />
+              )
+            })}
+          </div>
+          <span
+            className="habit-tracker-name"
+            title={habit.description || ''}
+            onDoubleClick={() => onEditHabit(habit)}
+          >
+            {habit.name}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
