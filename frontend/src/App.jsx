@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Bell, BellOff, Eye, EyeOff, Menu, Pencil, Recycle, StickyNote, Timer, Columns4, CalendarCheck, LayoutList } from 'lucide-react'
+import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pencil, Recycle, StickyNote, Timer, Columns4, CalendarCheck, LayoutList } from 'lucide-react'
 import './App.css'
 
 // ============================================
@@ -491,6 +491,13 @@ function App() {
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
+  // Habit tracker drawer state
+  const [habitDrawerOpen, setHabitDrawerOpen] = useState(false)
+  const [habitModalOpen, setHabitModalOpen] = useState(false)
+  const [editingHabit, setEditingHabit] = useState(null)
+  const habitsSectionRef = useRef(null)
+  const [drawerStyle, setDrawerStyle] = useState({})
+
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' })
   const showAlert = (title, message) => setAlertDialog({ isOpen: true, title, message })
@@ -547,6 +554,26 @@ function App() {
     }, 1000)
     return () => clearInterval(interval)
   }, [])
+
+  // Update habit tracker drawer position
+  useEffect(() => {
+    if (!habitDrawerOpen) return
+    const updatePosition = () => {
+      const el = habitsSectionRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const headerEl = el.querySelector('.section-header')
+      const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
+      setDrawerStyle({
+        left: rect.left,
+        width: rect.width,
+        maxHeight: `calc(100vh - ${headerBottom}px)`
+      })
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    return () => window.removeEventListener('resize', updatePosition)
+  }, [habitDrawerOpen])
 
   // ============================================
   // DAILY STATE HANDLERS
@@ -1136,6 +1163,16 @@ function App() {
     saveHabitTracker(updated)
   }
 
+  const openEditHabit = (habit) => {
+    setEditingHabit(habit)
+    setHabitModalOpen(true)
+  }
+
+  const closeHabitModal = () => {
+    setHabitModalOpen(false)
+    setEditingHabit(null)
+  }
+
   // ============================================
   // MEETINGS HANDLERS
   // ============================================
@@ -1515,7 +1552,7 @@ function App() {
 
       <main className="main-layout">
         {/* Left Column - Habits */}
-        <section className="habits-section">
+        <section className="habits-section" ref={habitsSectionRef}>
           <header className="section-header">
             <h2 className="section-title">Today's <span>Habits</span></h2>
             <div className="section-meta">
@@ -1741,6 +1778,45 @@ function App() {
         </aside>
       </main>
 
+      {/* Habit Tracker Trigger Button */}
+      {habitsSectionRef.current && (
+        <button
+          className={`habit-tracker-trigger ${habitDrawerOpen ? 'active' : ''}`}
+          onClick={() => setHabitDrawerOpen(!habitDrawerOpen)}
+          title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
+          style={{
+            left: (habitsSectionRef.current?.getBoundingClientRect().right - 48) || 'auto'
+          }}
+        >
+          <BarChart3 size={18} />
+        </button>
+      )}
+
+      {/* Habit Tracker Drawer */}
+      <div
+        className={`habit-tracker-drawer ${habitDrawerOpen ? 'open' : ''}`}
+        style={drawerStyle}
+      >
+        <div className="habit-tracker-drawer-header">
+          <h3 className="habit-tracker-drawer-title">Habit <span>Tracker</span></h3>
+          <button
+            className="btn btn-secondary"
+            onClick={() => { setEditingHabit(null); setHabitModalOpen(true) }}
+            style={{ fontSize: '0.65rem', padding: '0.4rem 0.8rem' }}
+          >
+            + Add
+          </button>
+        </div>
+        <div className="habit-tracker-drawer-body">
+          <HabitTrackerDrawer
+            isOpen={habitDrawerOpen}
+            habits={habitTracker.habits}
+            onToggleEntry={toggleHabitEntry}
+            onEditHabit={openEditHabit}
+          />
+        </div>
+      </div>
+
       {/* Add/Edit Block Modal */}
       <AddBlockModal
         isOpen={blockModalOpen}
@@ -1766,6 +1842,15 @@ function App() {
         onSave={editingMeeting ? (data) => updateMeeting(editingMeeting.id, data) : addMeeting}
         onDelete={editingMeeting ? () => deleteMeeting(editingMeeting.id) : null}
         editingMeeting={editingMeeting}
+      />
+
+      {/* Add/Edit Habit Modal */}
+      <AddHabitModal
+        isOpen={habitModalOpen}
+        onClose={closeHabitModal}
+        onSave={editingHabit ? (data) => updateHabit(editingHabit.id, data) : addHabit}
+        onDelete={editingHabit ? () => deleteHabit(editingHabit.id) : null}
+        editingHabit={editingHabit}
       />
 
       {/* Clear Done Confirmation Modal */}
