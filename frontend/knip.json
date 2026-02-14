@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": ["src/main.jsx"],
+  "project": ["src/**/*.{js,jsx}"],
+  "ignore": ["**/*.test.{js,jsx}", "**/*.spec.{js,jsx}"],
+  "ignoreDependencies": ["@testing-library/react", "jest", "nyc"],
+  "ignoreExportsUsedInFile": true
+}

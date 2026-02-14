@@ -1,0 +1,8 @@
+{
+  "all": true,
+  "include": ["src/**/*.{js,jsx}"],
+  "exclude": ["**/*.test.{js,jsx}", "**/*.spec.{js,jsx}", "src/main.jsx"],
+  "reporter": ["text", "html", "lcov"],
+  "report-dir": "coverage",
+  "check-coverage": false
+}
