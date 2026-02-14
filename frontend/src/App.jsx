@@ -48,6 +48,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'touchtask_settings',
   REMINDERS: 'touchtask_reminders',
   MEETINGS: 'touchtask_meetings',
+  HABIT_TRACKER: 'touchtask_habit_tracker',
 }
 
 const getDefaultSettings = () => ({
@@ -362,6 +363,20 @@ const saveMeetings = (data) => {
   localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(data))
 }
 
+const loadHabitTracker = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.HABIT_TRACKER)
+    return data ? JSON.parse(data) : { habits: [] }
+  } catch (e) {
+    console.error('Error loading habit tracker:', e)
+    return { habits: [] }
+  }
+}
+
+const saveHabitTracker = (data) => {
+  localStorage.setItem(STORAGE_KEYS.HABIT_TRACKER, JSON.stringify(data))
+}
+
 const initializeDailyState = (masterBlocks, existingDailyState) => {
   const today = getTodayString()
 
@@ -404,6 +419,7 @@ function App() {
   const [kanbanTasks, setKanbanTasks] = useState(null)
   const [reminders, setReminders] = useState([])
   const [meetings, setMeetings] = useState({ date: getTodayString(), items: [] })
+  const [habitTracker, setHabitTracker] = useState({ habits: [] })
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -486,12 +502,15 @@ function App() {
       console.log('TouchTask: Reminders loaded', loadedReminders)
       const loadedMeetings = loadMeetings()
       console.log('TouchTask: Meetings loaded', loadedMeetings)
+      const loadedHabitTracker = loadHabitTracker()
+      console.log('TouchTask: Habit tracker loaded', loadedHabitTracker)
 
       setMasterBlocks(master)
       setDailyState(daily)
       setKanbanTasks(kanban)
       setReminders(loadedReminders)
       setMeetings(loadedMeetings)
+      setHabitTracker(loadedHabitTracker)
       setSettings(appSettings)
       setTimerState(prev => ({
         ...prev,
