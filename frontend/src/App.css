@@ -1802,6 +1802,11 @@
     font-weight: 700;
 }
 
+.habit-tracker-day-date {
+    font-size: 0.45rem;
+    line-height: 1.2;
+}
+
 .habit-tracker-name-spacer {
     min-width: 80px;
 }
@@ -1847,7 +1852,8 @@
     color: var(--ink);
     white-space: nowrap;
     cursor: default;
-    margin-left: auto;
+    min-width: 80px;
+    text-align: right;
 }
 
 .habit-tracker-name:hover {

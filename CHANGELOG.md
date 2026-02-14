@@ -8,6 +8,11 @@ This repository does not currently use release tags, so entries are grouped by d
 ## 2026-02-14
 
 ### Added
+- Habit tracker panel: bottom-drawer anchored to the habits column with a fixed trigger button, sliding 200ms animation, and click-outside-to-close behavior
+- Track daily habits over a rolling 30-day window using color-coded toggle buttons (neutral → orange → green → red)
+- Add, edit (double-click title), and delete habits via modal dialogs
+- Day-of-week abbreviations and dd/mm dates displayed above toggle buttons, with today highlighted in red
+- Habit tracker data persisted in localStorage and included in backup/restore and reset flows
 - Custom TouchTask favicon replacing the default Vite favicon, with support for apple-touch-icon, Android Chrome icons, and web app manifest
 - CI pipeline via `just ci` running ESLint, Stylelint, HTML validation, Knip (dead code), Plato (complexity), Jest (tests), and Lighthouse (performance audit)
 - CI toolchain dev dependencies: Jest, Testing Library, Stylelint, Knip, Plato, html-validator-cli, nyc, Babel

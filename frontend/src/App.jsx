@@ -20,9 +20,12 @@ const getPast30Days = () => {
   for (let i = 29; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
     days.push({
       dateStr: d.toISOString().split('T')[0],
       dayOfWeek: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][d.getDay()],
+      dayDate: `${dd}/${mm}`,
       isToday: i === 0
     })
   }
@@ -497,6 +500,7 @@ function App() {
   const [editingHabit, setEditingHabit] = useState(null)
   const habitsSectionRef = useRef(null)
   const [drawerStyle, setDrawerStyle] = useState({})
+  const [triggerLeft, setTriggerLeft] = useState(null)
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' })
@@ -555,25 +559,27 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
-  // Update habit tracker drawer position
+  // Update habit tracker trigger + drawer position
   useEffect(() => {
-    if (!habitDrawerOpen) return
     const updatePosition = () => {
       const el = habitsSectionRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      const headerEl = el.querySelector('.section-header')
-      const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
-      setDrawerStyle({
-        left: rect.left,
-        width: rect.width,
-        maxHeight: `calc(100vh - ${headerBottom}px)`
-      })
+      setTriggerLeft(rect.right - 48)
+      if (habitDrawerOpen) {
+        const headerEl = el.querySelector('.section-header')
+        const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
+        setDrawerStyle({
+          left: rect.left,
+          width: rect.width,
+          maxHeight: `calc(100vh - ${headerBottom}px)`
+        })
+      }
     }
     updatePosition()
     window.addEventListener('resize', updatePosition)
     return () => window.removeEventListener('resize', updatePosition)
-  }, [habitDrawerOpen])
+  }, [habitDrawerOpen, loading])
 
   // Close habit drawer on click outside
   useEffect(() => {
@@ -1154,7 +1160,7 @@ function App() {
   }
 
   const toggleHabitEntry = (habitId, dateStr) => {
-    const cycle = [null, 'green', 'orange', 'red']
+    const cycle = [null, 'orange', 'green', 'red']
     const updated = {
       habits: habitTracker.habits.map(h => {
         if (h.id !== habitId) return h
@@ -1790,14 +1796,12 @@ function App() {
       </main>
 
       {/* Habit Tracker Trigger Button */}
-      {habitsSectionRef.current && (
+      {triggerLeft !== null && (
         <button
           className={`habit-tracker-trigger ${habitDrawerOpen ? 'active' : ''}`}
           onClick={() => setHabitDrawerOpen(!habitDrawerOpen)}
           title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
-          style={{
-            left: (habitsSectionRef.current?.getBoundingClientRect().right - 48) || 'auto'
-          }}
+          style={{ left: triggerLeft }}
         >
           <BarChart3 size={18} />
         </button>
@@ -2879,22 +2883,30 @@ function HabitTrackerDrawer({ isOpen, habits, onToggleEntry, onEditHabit }) {
     <div className="habit-tracker-grid">
       {/* Day labels header row */}
       <div className="habit-tracker-row habit-tracker-header-row">
+        <div className="habit-tracker-name-spacer" />
         <div className="habit-tracker-days">
           {days.map(day => (
             <div
               key={day.dateStr}
               className={`habit-tracker-day-label ${day.isToday ? 'today' : ''}`}
             >
-              {day.dayOfWeek}
+              <div>{day.dayOfWeek}</div>
+              <div className="habit-tracker-day-date">{day.dayDate}</div>
             </div>
           ))}
         </div>
-        <div className="habit-tracker-name-spacer" />
       </div>
 
       {/* Habit rows */}
       {habits.map(habit => (
         <div key={habit.id} className="habit-tracker-row">
+          <span
+            className="habit-tracker-name"
+            title={habit.description || ''}
+            onDoubleClick={() => onEditHabit(habit)}
+          >
+            {habit.name}
+          </span>
           <div className="habit-tracker-days">
             {days.map(day => {
               const state = habit.entries[day.dateStr] || null
@@ -2908,13 +2920,6 @@ function HabitTrackerDrawer({ isOpen, habits, onToggleEntry, onEditHabit }) {
               )
             })}
           </div>
-          <span
-            className="habit-tracker-name"
-            title={habit.description || ''}
-            onDoubleClick={() => onEditHabit(habit)}
-          >
-            {habit.name}
-          </span>
         </div>
       ))}
     </div>
