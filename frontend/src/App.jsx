@@ -846,7 +846,8 @@ function App() {
       masterBlocks: masterBlocks.blocks,
       kanbanTasks: kanbanTasks.tasks,
       reminders: reminders,
-      meetings: meetings.items
+      meetings: meetings.items,
+      habitTracker: habitTracker.habits,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -929,6 +930,11 @@ function App() {
     saveMeetings(loadedMeetings)
     setMeetings(loadedMeetings)
 
+    // Load habit tracker
+    const loadedHabitTracker = { habits: pendingLoadData.habitTracker || [] }
+    saveHabitTracker(loadedHabitTracker)
+    setHabitTracker(loadedHabitTracker)
+
     // Reset settings to defaults
     const defaultSettings = getDefaultSettings()
     saveSettings(defaultSettings)
@@ -972,6 +978,11 @@ function App() {
     saveMeetings(emptyMeetings)
     setMeetings(emptyMeetings)
 
+    // Clear habit tracker
+    const emptyHabitTracker = { habits: [] }
+    saveHabitTracker(emptyHabitTracker)
+    setHabitTracker(emptyHabitTracker)
+
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
 
@@ -1012,6 +1023,11 @@ function App() {
     // Load demo meetings
     saveMeetings(demoMeetings)
     setMeetings(demoMeetings)
+
+    // Reset habit tracker (no demo data for habits)
+    const emptyHabitTracker = { habits: [] }
+    saveHabitTracker(emptyHabitTracker)
+    setHabitTracker(emptyHabitTracker)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
