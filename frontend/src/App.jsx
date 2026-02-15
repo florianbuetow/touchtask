@@ -2927,7 +2927,6 @@ function HabitTrackerDrawer({ isOpen, habits, onToggleEntry, onEditHabit }) {
     <div className="habit-tracker-grid">
       {/* Day labels header row */}
       <div className="habit-tracker-row habit-tracker-header-row">
-        <div className="habit-tracker-name-spacer" />
         <div className="habit-tracker-days">
           {days.map(day => (
             <div
@@ -2939,18 +2938,12 @@ function HabitTrackerDrawer({ isOpen, habits, onToggleEntry, onEditHabit }) {
             </div>
           ))}
         </div>
+        <div className="habit-tracker-name-spacer" />
       </div>
 
       {/* Habit rows */}
       {habits.map(habit => (
         <div key={habit.id} className="habit-tracker-row">
-          <span
-            className="habit-tracker-name"
-            title={habit.description || ''}
-            onDoubleClick={() => onEditHabit(habit)}
-          >
-            {habit.name}
-          </span>
           <div className="habit-tracker-days">
             {days.map(day => {
               const state = habit.entries[day.dateStr] || null
@@ -2964,6 +2957,13 @@ function HabitTrackerDrawer({ isOpen, habits, onToggleEntry, onEditHabit }) {
               )
             })}
           </div>
+          <span
+            className="habit-tracker-name"
+            data-tooltip={habit.description || undefined}
+            onDoubleClick={() => onEditHabit(habit)}
+          >
+            {habit.name}
+          </span>
         </div>
       ))}
     </div>
