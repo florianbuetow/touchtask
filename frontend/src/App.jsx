@@ -350,7 +350,6 @@ const getDefaultHabitTracker = () => {
   }
 }
 
-const getDefaultProjectBoard = () => ({ projects: [] })
 
 const loadMasterBlocks = () => {
   try {
@@ -657,17 +656,16 @@ function App() {
     return () => window.removeEventListener('resize', updatePosition)
   }, [habitDrawerOpen, secondDrawerOpen, loading])
 
-  // Close drawers on click outside
+  // Close habit drawer on click outside (project board only toggles via its button)
   useEffect(() => {
-    if (!habitDrawerOpen && !secondDrawerOpen) return
+    if (!habitDrawerOpen) return
     const handleClickOutside = (e) => {
-      if (e.target.closest('.habit-tracker-drawer') || e.target.closest('.second-drawer') || e.target.closest('.drawer-trigger') || e.target.closest('.modal-overlay')) return
+      if (e.target.closest('.habit-tracker-drawer') || e.target.closest('.drawer-trigger') || e.target.closest('.modal-overlay')) return
       setHabitDrawerOpen(false)
-      setSecondDrawerOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [habitDrawerOpen, secondDrawerOpen])
+  }, [habitDrawerOpen])
 
   // ============================================
   // DAILY STATE HANDLERS
@@ -1177,25 +1175,72 @@ function App() {
     setHabitTracker(demoHabitTracker)
 
     // Load demo project board
+    const t = () => new Date().toISOString()
+    const pt = (title, category, priority, project, minutes = 0) => ({ id: generateId(), title, category, project, priority, time_logged_minutes: minutes, created_at: t(), completed_at: null })
     const demoProjectBoard = {
       projects: [
         {
-          id: generateId(),
-          name: 'App Launch',
-          created_at: new Date().toISOString(),
+          id: generateId(), name: 'App Launch', created_at: t(),
           tasks: [
-            { id: generateId(), title: 'Write landing page copy', category: 'Marketing', priority: 'high', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
-            { id: generateId(), title: 'Set up analytics', category: 'Development', priority: 'normal', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
+            pt('Write landing page copy', 'Marketing', 'high', 'App Launch'),
+            pt('Set up analytics dashboard', 'Development', 'normal', 'App Launch'),
+            pt('Create onboarding flow', 'Design', 'high', 'App Launch', 45),
+            pt('Prepare press kit', 'Marketing', 'low', 'App Launch'),
+            pt('Configure CI/CD pipeline', 'Development', 'normal', 'App Launch', 120),
           ]
         },
         {
-          id: generateId(),
-          name: 'Content Plan',
-          created_at: new Date().toISOString(),
+          id: generateId(), name: 'Content Plan', created_at: t(),
           tasks: [
-            { id: generateId(), title: 'Draft blog post outline', category: 'Writing', priority: 'normal', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
-            { id: generateId(), title: 'Record tutorial video', category: 'Content', priority: 'high', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
-            { id: generateId(), title: 'Design social media assets', category: 'Design', priority: 'low', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
+            pt('Draft blog post outline', 'Writing', 'normal', 'Content Plan'),
+            pt('Record tutorial video', 'Content', 'high', 'Content Plan'),
+            pt('Design social media assets', 'Design', 'low', 'Content Plan'),
+            pt('Write product changelog', 'Writing', 'normal', 'Content Plan', 30),
+          ]
+        },
+        {
+          id: generateId(), name: 'Website Redesign', created_at: t(),
+          tasks: [
+            pt('Audit current site performance', 'Research', 'high', 'Website Redesign', 60),
+            pt('Create wireframes for homepage', 'Design', 'high', 'Website Redesign'),
+            pt('Build responsive nav component', 'Development', 'normal', 'Website Redesign', 90),
+          ]
+        },
+        {
+          id: generateId(), name: 'User Research', created_at: t(),
+          tasks: [
+            pt('Prepare interview questions', 'Research', 'normal', 'User Research'),
+            pt('Schedule 5 user interviews', 'Outreach', 'high', 'User Research', 15),
+          ]
+        },
+        {
+          id: generateId(), name: 'Bug Fixes', created_at: t(),
+          tasks: [
+            pt('Fix mobile layout overflow', 'Development', 'high', 'Bug Fixes', 25),
+          ]
+        },
+        {
+          id: generateId(), name: 'API Integration', created_at: t(),
+          tasks: [
+            pt('Design REST API schema', 'Architecture', 'high', 'API Integration'),
+            pt('Implement auth endpoints', 'Development', 'high', 'API Integration', 180),
+            pt('Write API documentation', 'Documentation', 'normal', 'API Integration'),
+          ]
+        },
+        {
+          id: generateId(), name: 'Onboarding', created_at: t(),
+          tasks: [
+            pt('Design welcome wizard', 'Design', 'high', 'Onboarding'),
+            pt('Build tooltip tour component', 'Development', 'normal', 'Onboarding', 40),
+          ]
+        },
+        {
+          id: generateId(), name: 'Q2 Planning', created_at: t(),
+          tasks: [
+            pt('Review Q1 metrics', 'Strategy', 'high', 'Q2 Planning', 30),
+            pt('Define OKRs for Q2', 'Strategy', 'high', 'Q2 Planning'),
+            pt('Estimate engineering capacity', 'Planning', 'normal', 'Q2 Planning'),
+            pt('Prioritize feature backlog', 'Planning', 'normal', 'Q2 Planning', 20),
           ]
         }
       ]
@@ -1332,6 +1377,7 @@ function App() {
       id: generateId(),
       title: taskData.title,
       category: taskData.category || 'Task',
+      project: taskData.project || '',
       priority: taskData.priority || 'normal',
       time_logged_minutes: taskData.time_logged_minutes || 0,
       created_at: new Date().toISOString(),
@@ -1612,10 +1658,15 @@ function App() {
   // DRAG AND DROP
   // ============================================
 
+  // Track whether drawer was open before drag started
+  const drawerOpenBeforeDrag = useRef(false)
+
   const handleDragStart = (e, taskId, source = 'kanban', sourceProjectId = null) => {
+    console.log('[DnD] dragstart:', { taskId, source, sourceProjectId })
     setDraggedTaskId(taskId)
     setDragSource(source)
     setDragSourceProjectId(sourceProjectId)
+    drawerOpenBeforeDrag.current = secondDrawerOpen
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -1624,26 +1675,33 @@ function App() {
     e.dataTransfer.dropEffect = 'move'
   }
 
+  const clearDragState = () => {
+    console.log('[DnD] clearing drag state')
+    setDraggedTaskId(null)
+    setDragSource(null)
+    setDragSourceProjectId(null)
+  }
+
   const handleDropOnColumn = (e, column) => {
     e.preventDefault()
+    console.log('[DnD] dropOnColumn:', { column, draggedTaskId, dragSource })
     if (draggedTaskId) {
       if (dragSource === 'project') {
         // Find the task in the project board
         let task = null
+        let sourceProject = null
         for (const project of projectBoard.projects) {
           task = project.tasks.find(t => t.id === draggedTaskId)
-          if (task) break
+          if (task) { sourceProject = project; break }
         }
         if (task) {
-          addKanbanTask({ ...task, column })
+          addKanbanTask({ ...task, column, project: task.project || sourceProject?.name || '' })
           removeTaskFromProject(draggedTaskId)
         }
       } else {
         moveKanbanTask(draggedTaskId, column)
       }
-      setDraggedTaskId(null)
-      setDragSource(null)
-      setDragSourceProjectId(null)
+      clearDragState()
     }
   }
 
@@ -1652,22 +1710,62 @@ function App() {
     if (draggedTaskId) {
       if (dragSource === 'project') {
         let task = null
+        let sourceProject = null
         for (const project of projectBoard.projects) {
           task = project.tasks.find(t => t.id === draggedTaskId)
-          if (task) break
+          if (task) { sourceProject = project; break }
         }
         if (task) {
-          addKanbanTask({ ...task, column: 'progress' })
+          addKanbanTask({ ...task, column: 'progress', project: task.project || sourceProject?.name || '' })
           removeTaskFromProject(draggedTaskId)
           setActiveTask(draggedTaskId)
         }
       } else {
         setActiveTask(draggedTaskId)
       }
-      setDraggedTaskId(null)
-      setDragSource(null)
-      setDragSourceProjectId(null)
+      clearDragState()
     }
+  }
+
+  const handleDropOnProject = (e, targetProjectId) => {
+    e.preventDefault()
+    console.log('[DnD] dropOnProject:', { targetProjectId, draggedTaskId, dragSource, dragSourceProjectId })
+    if (!draggedTaskId) return
+
+    const targetProject = projectBoard.projects.find(p => p.id === targetProjectId)
+
+    if (dragSource === 'kanban') {
+      // Move from Kanban to project
+      const task = kanbanTasks.tasks.find(t => t.id === draggedTaskId)
+      if (task) {
+        const { column: _column, ...projectTask } = task
+        addProjectTask(targetProjectId, { ...projectTask, project: projectTask.project || targetProject?.name || '' })
+        deleteKanbanTask(draggedTaskId)
+      }
+    } else if (dragSource === 'project' && dragSourceProjectId !== targetProjectId) {
+      // Move between projects
+      let task = null
+      for (const project of projectBoard.projects) {
+        task = project.tasks.find(t => t.id === draggedTaskId)
+        if (task) break
+      }
+      if (task) {
+        const updated = {
+          projects: projectBoard.projects.map(p => {
+            if (p.id === dragSourceProjectId) {
+              return { ...p, tasks: p.tasks.filter(t => t.id !== draggedTaskId) }
+            }
+            if (p.id === targetProjectId) {
+              return { ...p, tasks: [...p.tasks, { ...task, project: task.project || targetProject?.name || '' }] }
+            }
+            return p
+          })
+        }
+        setProjectBoard(updated)
+        saveProjectBoard(updated)
+      }
+    }
+    clearDragState()
   }
 
   // ============================================
@@ -2065,7 +2163,6 @@ function App() {
         </div>
         <div className="habit-tracker-drawer-body">
           <HabitTrackerDrawer
-            isOpen={habitDrawerOpen}
             habits={habitTracker.habits}
             onToggleEntry={toggleHabitEntry}
             onEditHabit={openEditHabit}
@@ -2096,7 +2193,12 @@ function App() {
           ) : (
             <div className="project-board">
               {projectBoard.projects.map(project => (
-                <div key={project.id} className="project-column">
+                <div
+                  key={project.id}
+                  className="project-column"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDropOnProject(e, project.id)}
+                >
                   <div className="project-column-header">
                     <span className="column-title">{project.name}</span>
                     <span className="column-count">{project.tasks.length}</span>
@@ -2510,17 +2612,17 @@ function KanbanColumn({ column, tasks, onDragStart, onDragOver, onDrop, onAddCli
   }
 
   return (
-    <div className="kanban-column">
+    <div
+      className="kanban-column"
+      onDragOver={onDragOver}
+      onDrop={(e) => onDrop(e, column)}
+    >
       <div className="column-header">
         <span className="column-title">{columnNames[column]}</span>
         <span className={`column-count ${column === 'done' ? 'done-count' : ''}`}>{tasks.length}</span>
       </div>
 
-      <div
-        className="column-tasks"
-        onDragOver={onDragOver}
-        onDrop={(e) => onDrop(e, column)}
-      >
+      <div className="column-tasks">
         {tasks.map(task => (
           <div
             key={task.id}
@@ -2835,6 +2937,7 @@ function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
 function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
+  const [project, setProject] = useState('')
   const [priority, setPriority] = useState('normal')
   const [hoursSpent, setHoursSpent] = useState('')
   const [minutesSpent, setMinutesSpent] = useState('')
@@ -2855,6 +2958,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
     if (editingTask) {
       setName(editingTask.title || '')
       setCategory(editingTask.category || '')
+      setProject(editingTask.project || '')
       setPriority(editingTask.priority || 'normal')
       const hours = Math.floor((editingTask.time_logged_minutes || 0) / 60)
       const mins = (editingTask.time_logged_minutes || 0) % 60
@@ -2864,6 +2968,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
       // Reset form for new task
       setName('')
       setCategory('')
+      setProject('')
       setPriority('normal')
       setHoursSpent('')
       setMinutesSpent('')
@@ -2881,6 +2986,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
     onSave({
       title: name.trim(),
       category: category.trim() || 'Task',
+      project: project.trim(),
       priority,
       time_logged_minutes: totalMinutes
     })
@@ -2924,15 +3030,27 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Category</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g., Project"
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-            />
+          <div className="category-project-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Category</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g., Development"
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Project</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g., Website Redesign"
+                value={project}
+                onChange={e => setProject(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="priority-time-row">
@@ -3286,7 +3404,7 @@ function AddHabitModal({ isOpen, onClose, onSave, onDelete, editingHabit }) {
 // HABIT TRACKER DRAWER COMPONENT
 // ============================================
 
-function HabitTrackerDrawer({ isOpen, habits, onToggleEntry, onEditHabit }) {
+function HabitTrackerDrawer({ habits, onToggleEntry, onEditHabit }) {
   const days = getPast30Days()
 
   if (habits.length === 0) {

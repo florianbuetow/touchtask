@@ -1586,6 +1586,12 @@
     color: var(--muted);
 }
 
+/* Category and Project on Same Row */
+.category-project-row {
+    display: flex;
+    gap: 1rem;
+}
+
 /* Priority and Time on Same Row */
 .priority-time-row {
     display: flex;
@@ -1809,8 +1815,7 @@
     display: flex;
     gap: 0.75rem;
     padding: 0.5rem 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto hidden;
     flex: 1;
     min-height: 0;
 }
