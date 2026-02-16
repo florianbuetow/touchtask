@@ -2571,6 +2571,16 @@ function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
   const [tags, setTags] = useState('')
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   // Initialize form when editing
   useEffect(() => {
     if (editingBlock) {
@@ -2830,6 +2840,16 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
   const [minutesSpent, setMinutesSpent] = useState('')
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   // Initialize form when editing
   useEffect(() => {
     if (editingTask) {
@@ -2900,6 +2920,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
               placeholder="e.g., Build MVP"
               value={name}
               onChange={e => setName(e.target.value)}
+              autoFocus
             />
           </div>
 
