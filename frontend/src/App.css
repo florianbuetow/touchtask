@@ -1686,10 +1686,16 @@
    HABIT TRACKER DRAWER
    ============================================ */
 
-.habit-tracker-trigger {
+.drawer-trigger-group {
     position: fixed;
     bottom: 0;
     z-index: 999;
+    display: flex;
+}
+
+.drawer-trigger {
+    position: relative;
+    z-index: 0;
     width: 40px;
     height: 34px;
     border-radius: 8px 8px 0 0;
@@ -1705,12 +1711,17 @@
     box-shadow: 0 -2px 8px rgb(0 0 0 / 10%);
 }
 
-.habit-tracker-trigger:hover {
+.drawer-trigger + .drawer-trigger {
+    margin-left: -8px;
+}
+
+.drawer-trigger:hover {
     border-color: var(--ink);
     color: var(--ink);
 }
 
-.habit-tracker-trigger.active {
+.drawer-trigger.active {
+    z-index: 1;
     background: var(--accent);
     border-color: var(--accent);
     color: var(--paper);
@@ -1766,6 +1777,70 @@
     font-size: 0.85rem;
     text-align: center;
     padding: 2rem 0;
+}
+
+.second-drawer {
+    position: fixed;
+    bottom: 0;
+    z-index: 998;
+    background: var(--paper);
+    border-top-left-radius: var(--card-radius);
+    border-top-right-radius: var(--card-radius);
+    box-shadow: 0 -4px 20px rgb(0 0 0 / 15%);
+    transform: translateY(100%);
+    transition: transform 200ms ease-out;
+    overflow: hidden;
+    display: flex;
+    flex-flow: column;
+}
+
+.second-drawer.open {
+    transform: translateY(0);
+}
+
+.project-board-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0 1rem 1rem;
+}
+
+.project-board {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+.project-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    max-width: 222px;
+    flex-shrink: 0;
+}
+
+.project-column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--ink);
+    flex-shrink: 0;
+}
+
+.project-column-tasks {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
 }
 
 .habit-tracker-grid {
@@ -1885,7 +1960,7 @@
 @media (width <= 1200px) {
     .main-layout { grid-template-columns: 1fr; }
     .kanban-section { order: -1; max-height: 500px; }
-    .habit-tracker-trigger { right: 1rem; left: auto !important; }
+    .drawer-trigger-group { right: 1rem; left: auto !important; }
 }
 
 /* ============================================

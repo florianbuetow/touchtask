@@ -67,6 +67,7 @@ const STORAGE_KEYS = {
   REMINDERS: 'touchtask_reminders',
   MEETINGS: 'touchtask_meetings',
   HABIT_TRACKER: 'touchtask_habit_tracker',
+  PROJECT_BOARD: 'touchtask_project_board',
 }
 
 const getDefaultSettings = () => ({
@@ -349,6 +350,8 @@ const getDefaultHabitTracker = () => {
   }
 }
 
+const getDefaultProjectBoard = () => ({ projects: [] })
+
 const loadMasterBlocks = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.MASTER_BLOCKS)
@@ -439,6 +442,20 @@ const saveHabitTracker = (data) => {
   localStorage.setItem(STORAGE_KEYS.HABIT_TRACKER, JSON.stringify(data))
 }
 
+const loadProjectBoard = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.PROJECT_BOARD)
+    return data ? JSON.parse(data) : { projects: [] }
+  } catch (e) {
+    console.error('Error loading project board:', e)
+    return { projects: [] }
+  }
+}
+
+const saveProjectBoard = (data) => {
+  localStorage.setItem(STORAGE_KEYS.PROJECT_BOARD, JSON.stringify(data))
+}
+
 const initializeDailyState = (masterBlocks, existingDailyState) => {
   const today = getTodayString()
 
@@ -482,6 +499,7 @@ function App() {
   const [reminders, setReminders] = useState([])
   const [meetings, setMeetings] = useState({ date: getTodayString(), items: [] })
   const [habitTracker, setHabitTracker] = useState({ habits: [] })
+  const [projectBoard, setProjectBoard] = useState({ projects: [] })
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -530,6 +548,8 @@ function App() {
 
   // Drag state
   const [draggedTaskId, setDraggedTaskId] = useState(null)
+  const [dragSource, setDragSource] = useState(null)
+  const [dragSourceProjectId, setDragSourceProjectId] = useState(null)
 
   // Section visibility state
   const [showReminders, setShowReminders] = useState(true)
@@ -545,6 +565,15 @@ function App() {
   const habitsSectionRef = useRef(null)
   const [drawerStyle, setDrawerStyle] = useState({})
   const [triggerLeft, setTriggerLeft] = useState(null)
+
+  // Second drawer pane state
+  const [secondDrawerOpen, setSecondDrawerOpen] = useState(false)
+  const [projectTaskModalOpen, setProjectTaskModalOpen] = useState(false)
+  const [projectTaskModalProjectId, setProjectTaskModalProjectId] = useState(null)
+  const [editingProjectTask, setEditingProjectTask] = useState(null)
+  const [addProjectModalOpen, setAddProjectModalOpen] = useState(false)
+  const [deleteProjectConfirmOpen, setDeleteProjectConfirmOpen] = useState(false)
+  const [deletingProjectId, setDeletingProjectId] = useState(null)
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' })
@@ -574,6 +603,8 @@ function App() {
       console.log('TouchTask: Meetings loaded', loadedMeetings)
       const loadedHabitTracker = loadHabitTracker()
       console.log('TouchTask: Habit tracker loaded', loadedHabitTracker)
+      const loadedProjectBoard = loadProjectBoard()
+      console.log('TouchTask: Project board loaded', loadedProjectBoard)
 
       setMasterBlocks(master)
       setDailyState(daily)
@@ -581,6 +612,7 @@ function App() {
       setReminders(loadedReminders)
       setMeetings(loadedMeetings)
       setHabitTracker(loadedHabitTracker)
+      setProjectBoard(loadedProjectBoard)
       setSettings(appSettings)
       setTimerState(prev => ({
         ...prev,
@@ -609,8 +641,8 @@ function App() {
       const el = habitsSectionRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      setTriggerLeft(rect.right - 48)
-      if (habitDrawerOpen) {
+      setTriggerLeft(rect.right - 88)
+      if (habitDrawerOpen || secondDrawerOpen) {
         const headerEl = el.querySelector('.section-header')
         const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
         setDrawerStyle({
@@ -623,18 +655,19 @@ function App() {
     updatePosition()
     window.addEventListener('resize', updatePosition)
     return () => window.removeEventListener('resize', updatePosition)
-  }, [habitDrawerOpen, loading])
+  }, [habitDrawerOpen, secondDrawerOpen, loading])
 
-  // Close habit drawer on click outside
+  // Close drawers on click outside
   useEffect(() => {
-    if (!habitDrawerOpen) return
+    if (!habitDrawerOpen && !secondDrawerOpen) return
     const handleClickOutside = (e) => {
-      if (e.target.closest('.habit-tracker-drawer') || e.target.closest('.habit-tracker-trigger') || e.target.closest('.modal-overlay')) return
+      if (e.target.closest('.habit-tracker-drawer') || e.target.closest('.second-drawer') || e.target.closest('.drawer-trigger') || e.target.closest('.modal-overlay')) return
       setHabitDrawerOpen(false)
+      setSecondDrawerOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [habitDrawerOpen])
+  }, [habitDrawerOpen, secondDrawerOpen])
 
   // ============================================
   // DAILY STATE HANDLERS
@@ -858,10 +891,10 @@ function App() {
 
   const addKanbanTask = (taskData) => {
     const newTask = {
-      id: generateId(),
+      id: taskData.id || generateId(),
       ...taskData,
       time_logged_minutes: taskData.time_logged_minutes || 0,
-      created_at: new Date().toISOString(),
+      created_at: taskData.created_at || new Date().toISOString(),
       completed_at: null
     }
 
@@ -951,6 +984,7 @@ function App() {
       reminders: reminders,
       meetings: meetings.items,
       habitTracker: habitTracker.habits,
+      projectBoard: projectBoard.projects,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -1038,6 +1072,11 @@ function App() {
     saveHabitTracker(loadedHabitTracker)
     setHabitTracker(loadedHabitTracker)
 
+    // Load project board
+    const loadedProjectBoard = { projects: pendingLoadData.projectBoard || [] }
+    saveProjectBoard(loadedProjectBoard)
+    setProjectBoard(loadedProjectBoard)
+
     // Reset settings to defaults
     const defaultSettings = getDefaultSettings()
     saveSettings(defaultSettings)
@@ -1086,6 +1125,11 @@ function App() {
     saveHabitTracker(emptyHabitTracker)
     setHabitTracker(emptyHabitTracker)
 
+    // Clear project board
+    const emptyProjectBoard = { projects: [] }
+    saveProjectBoard(emptyProjectBoard)
+    setProjectBoard(emptyProjectBoard)
+
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
 
@@ -1131,6 +1175,33 @@ function App() {
     const demoHabitTracker = getDefaultHabitTracker()
     saveHabitTracker(demoHabitTracker)
     setHabitTracker(demoHabitTracker)
+
+    // Load demo project board
+    const demoProjectBoard = {
+      projects: [
+        {
+          id: generateId(),
+          name: 'App Launch',
+          created_at: new Date().toISOString(),
+          tasks: [
+            { id: generateId(), title: 'Write landing page copy', category: 'Marketing', priority: 'high', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
+            { id: generateId(), title: 'Set up analytics', category: 'Development', priority: 'normal', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
+          ]
+        },
+        {
+          id: generateId(),
+          name: 'Content Plan',
+          created_at: new Date().toISOString(),
+          tasks: [
+            { id: generateId(), title: 'Draft blog post outline', category: 'Writing', priority: 'normal', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
+            { id: generateId(), title: 'Record tutorial video', category: 'Content', priority: 'high', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
+            { id: generateId(), title: 'Design social media assets', category: 'Design', priority: 'low', time_logged_minutes: 0, created_at: new Date().toISOString(), completed_at: null },
+          ]
+        }
+      ]
+    }
+    saveProjectBoard(demoProjectBoard)
+    setProjectBoard(demoProjectBoard)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -1232,6 +1303,92 @@ function App() {
   const closeHabitModal = () => {
     setHabitModalOpen(false)
     setEditingHabit(null)
+  }
+
+  // ============================================
+  // PROJECT BOARD HANDLERS
+  // ============================================
+
+  const addProject = (name) => {
+    const newProject = {
+      id: generateId(),
+      name: name.trim(),
+      created_at: new Date().toISOString(),
+      tasks: []
+    }
+    const updated = { projects: [...projectBoard.projects, newProject] }
+    setProjectBoard(updated)
+    saveProjectBoard(updated)
+  }
+
+  const deleteProject = (projectId) => {
+    const updated = { projects: projectBoard.projects.filter(p => p.id !== projectId) }
+    setProjectBoard(updated)
+    saveProjectBoard(updated)
+  }
+
+  const addProjectTask = (projectId, taskData) => {
+    const newTask = {
+      id: generateId(),
+      title: taskData.title,
+      category: taskData.category || 'Task',
+      priority: taskData.priority || 'normal',
+      time_logged_minutes: taskData.time_logged_minutes || 0,
+      created_at: new Date().toISOString(),
+      completed_at: null
+    }
+    const updated = {
+      projects: projectBoard.projects.map(p =>
+        p.id === projectId ? { ...p, tasks: [...p.tasks, newTask] } : p
+      )
+    }
+    setProjectBoard(updated)
+    saveProjectBoard(updated)
+  }
+
+  const updateProjectTask = (projectId, taskId, taskData) => {
+    const updated = {
+      projects: projectBoard.projects.map(p =>
+        p.id === projectId
+          ? { ...p, tasks: p.tasks.map(t => t.id === taskId ? { ...t, ...taskData } : t) }
+          : p
+      )
+    }
+    setProjectBoard(updated)
+    saveProjectBoard(updated)
+  }
+
+  const deleteProjectTask = (projectId, taskId) => {
+    const updated = {
+      projects: projectBoard.projects.map(p =>
+        p.id === projectId ? { ...p, tasks: p.tasks.filter(t => t.id !== taskId) } : p
+      )
+    }
+    setProjectBoard(updated)
+    saveProjectBoard(updated)
+  }
+
+  const removeTaskFromProject = (taskId) => {
+    const updated = {
+      projects: projectBoard.projects.map(p => ({
+        ...p,
+        tasks: p.tasks.filter(t => t.id !== taskId)
+      }))
+    }
+    setProjectBoard(updated)
+    saveProjectBoard(updated)
+  }
+
+  const openEditProjectTask = (projectId, task) => {
+    setEditingProjectTask({ ...task, _projectId: projectId })
+    setProjectTaskModalProjectId(projectId)
+    setProjectTaskModalOpen(true)
+  }
+
+  const closeProjectTaskModal = () => {
+    setProjectTaskModalOpen(false)
+    setEditingProjectTask(null)
+    setProjectTaskModalProjectId(null)
   }
 
   // ============================================
@@ -1455,8 +1612,10 @@ function App() {
   // DRAG AND DROP
   // ============================================
 
-  const handleDragStart = (e, taskId) => {
+  const handleDragStart = (e, taskId, source = 'kanban', sourceProjectId = null) => {
     setDraggedTaskId(taskId)
+    setDragSource(source)
+    setDragSourceProjectId(sourceProjectId)
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -1468,16 +1627,46 @@ function App() {
   const handleDropOnColumn = (e, column) => {
     e.preventDefault()
     if (draggedTaskId) {
-      moveKanbanTask(draggedTaskId, column)
+      if (dragSource === 'project') {
+        // Find the task in the project board
+        let task = null
+        for (const project of projectBoard.projects) {
+          task = project.tasks.find(t => t.id === draggedTaskId)
+          if (task) break
+        }
+        if (task) {
+          addKanbanTask({ ...task, column })
+          removeTaskFromProject(draggedTaskId)
+        }
+      } else {
+        moveKanbanTask(draggedTaskId, column)
+      }
       setDraggedTaskId(null)
+      setDragSource(null)
+      setDragSourceProjectId(null)
     }
   }
 
   const handleDropOnTimer = (e) => {
     e.preventDefault()
     if (draggedTaskId) {
-      setActiveTask(draggedTaskId)
+      if (dragSource === 'project') {
+        let task = null
+        for (const project of projectBoard.projects) {
+          task = project.tasks.find(t => t.id === draggedTaskId)
+          if (task) break
+        }
+        if (task) {
+          addKanbanTask({ ...task, column: 'progress' })
+          removeTaskFromProject(draggedTaskId)
+          setActiveTask(draggedTaskId)
+        }
+      } else {
+        setActiveTask(draggedTaskId)
+      }
       setDraggedTaskId(null)
+      setDragSource(null)
+      setDragSourceProjectId(null)
     }
   }
 
@@ -1839,16 +2028,24 @@ function App() {
         </aside>
       </main>
 
-      {/* Habit Tracker Trigger Button */}
+      {/* Drawer Trigger Buttons */}
       {triggerLeft !== null && (
-        <button
-          className={`habit-tracker-trigger ${habitDrawerOpen ? 'active' : ''}`}
-          onClick={() => setHabitDrawerOpen(!habitDrawerOpen)}
-          title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
-          style={{ left: triggerLeft }}
-        >
-          <BarChart3 size={18} />
-        </button>
+        <div className="drawer-trigger-group" style={{ left: triggerLeft }}>
+          <button
+            className={`drawer-trigger ${habitDrawerOpen ? 'active' : ''}`}
+            onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setSecondDrawerOpen(false) }}
+            title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
+          >
+            <BarChart3 size={18} />
+          </button>
+          <button
+            className={`drawer-trigger ${secondDrawerOpen ? 'active' : ''}`}
+            onClick={() => { setSecondDrawerOpen(!secondDrawerOpen); setHabitDrawerOpen(false) }}
+            title={secondDrawerOpen ? 'Close pane' : 'Open pane'}
+          >
+            <Columns4 size={18} />
+          </button>
+        </div>
       )}
 
       {/* Habit Tracker Drawer */}
@@ -1873,6 +2070,77 @@ function App() {
             onToggleEntry={toggleHabitEntry}
             onEditHabit={openEditHabit}
           />
+        </div>
+      </div>
+
+      {/* Second Drawer - Project Board */}
+      <div
+        className={`second-drawer ${secondDrawerOpen ? 'open' : ''}`}
+        style={drawerStyle}
+      >
+        <div className="habit-tracker-drawer-header">
+          <h3 className="habit-tracker-drawer-title">Project <span>Board</span></h3>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setAddProjectModalOpen(true)}
+            style={{ fontSize: '0.65rem', padding: '0.4rem 0.8rem' }}
+          >
+            + Project
+          </button>
+        </div>
+        <div className="project-board-body">
+          {projectBoard.projects.length === 0 ? (
+            <div className="habit-tracker-empty">
+              No projects yet. Click "+ Project" to get started.
+            </div>
+          ) : (
+            <div className="project-board">
+              {projectBoard.projects.map(project => (
+                <div key={project.id} className="project-column">
+                  <div className="project-column-header">
+                    <span className="column-title">{project.name}</span>
+                    <span className="column-count">{project.tasks.length}</span>
+                  </div>
+                  <div className="project-column-tasks">
+                    {project.tasks.map(task => (
+                      <div
+                        key={task.id}
+                        className="kanban-task"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, task.id, 'project', project.id)}
+                        onDoubleClick={() => openEditProjectTask(project.id, task)}
+                      >
+                        <div className="kanban-task-header">
+                          <span className={`priority-tag ${task.priority === 'high' ? 'priority-high' : task.priority === 'low' ? 'priority-low' : 'priority-normal'}`}>
+                            {task.priority === 'high' ? 'High' : task.priority === 'low' ? 'Low' : 'Normal'}
+                          </span>
+                        </div>
+                        <div className="kanban-task-title">{task.title}</div>
+                        <div className="kanban-task-footer">
+                          <span className="kanban-task-meta">{task.category}</span>
+                          <span className={`kanban-task-time ${task.time_logged_minutes > 0 ? 'has-time' : ''}`}>
+                            {formatTime(task.time_logged_minutes)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="column-action add-task-btn" onClick={() => {
+                    setEditingProjectTask(null)
+                    setProjectTaskModalProjectId(project.id)
+                    setProjectTaskModalOpen(true)
+                  }}>+ Add</div>
+                  <div
+                    className="column-action clear-action"
+                    onClick={() => {
+                      setDeletingProjectId(project.id)
+                      setDeleteProjectConfirmOpen(true)
+                    }}
+                  >Delete</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1910,6 +2178,41 @@ function App() {
         onSave={editingHabit ? (data) => updateHabit(editingHabit.id, data) : addHabit}
         onDelete={editingHabit ? () => deleteHabit(editingHabit.id) : null}
         editingHabit={editingHabit}
+      />
+
+      {/* Add/Edit Project Task Modal (reuses AddTaskModal) */}
+      <AddTaskModal
+        isOpen={projectTaskModalOpen}
+        onClose={closeProjectTaskModal}
+        onSave={editingProjectTask
+          ? (data) => updateProjectTask(editingProjectTask._projectId, editingProjectTask.id, data)
+          : (data) => addProjectTask(projectTaskModalProjectId, data)
+        }
+        onDelete={editingProjectTask
+          ? () => { deleteProjectTask(editingProjectTask._projectId, editingProjectTask.id); closeProjectTaskModal() }
+          : null
+        }
+        editingTask={editingProjectTask}
+      />
+
+      {/* Add Project Modal */}
+      <AddProjectModal
+        isOpen={addProjectModalOpen}
+        onClose={() => setAddProjectModalOpen(false)}
+        onSave={(name) => { addProject(name); setAddProjectModalOpen(false) }}
+      />
+
+      {/* Delete Project Confirmation */}
+      <ConfirmDialog
+        isOpen={deleteProjectConfirmOpen}
+        onClose={() => { setDeleteProjectConfirmOpen(false); setDeletingProjectId(null) }}
+        onConfirm={() => {
+          if (deletingProjectId) deleteProject(deletingProjectId)
+          setDeleteProjectConfirmOpen(false)
+          setDeletingProjectId(null)
+        }}
+        title="Delete Project"
+        message="Are you sure you want to delete this project and all its tasks? This action cannot be undone."
       />
 
       {/* Clear Done Confirmation Modal */}
@@ -2697,6 +3000,56 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
         title="Delete Task"
         message={`Are you sure you want to delete "${name}"? This action cannot be undone.`}
       />
+    </div>
+  )
+}
+
+// ============================================
+// ADD PROJECT MODAL
+// ============================================
+
+function AddProjectModal({ isOpen, onClose, onSave }) {
+  const [name, setName] = useState('')
+
+  useEffect(() => {
+    if (isOpen) setName('')
+  }, [isOpen])
+
+  const handleSave = () => {
+    if (!name.trim()) return
+    onSave(name.trim())
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Add Project</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Project Name</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g., App Launch"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <div className="modal-footer-right">
+            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave}>Add Project</button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
