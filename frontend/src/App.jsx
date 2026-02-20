@@ -676,7 +676,7 @@ function App() {
       if (!el) return
       const rect = el.getBoundingClientRect()
       setTriggerLeft(rect.right - 120)
-      if (habitDrawerOpen || secondDrawerOpen || whiteboardDrawerOpen) {
+      if (habitDrawerOpen || secondDrawerOpen) {
         const headerEl = el.querySelector('.section-header')
         const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
         setDrawerStyle({
@@ -689,7 +689,7 @@ function App() {
     updatePosition()
     window.addEventListener('resize', updatePosition)
     return () => window.removeEventListener('resize', updatePosition)
-  }, [habitDrawerOpen, secondDrawerOpen, whiteboardDrawerOpen, loading])
+  }, [habitDrawerOpen, secondDrawerOpen, loading])
 
   // Close habit drawer on click outside (project board only toggles via its button)
   useEffect(() => {
@@ -2370,7 +2370,6 @@ function App() {
       {/* Third Drawer - Whiteboard */}
       <div
         className={`whiteboard-drawer ${whiteboardDrawerOpen ? 'open' : ''}`}
-        style={drawerStyle}
       >
         <div className="habit-tracker-drawer-header">
           <h3 className="habit-tracker-drawer-title">White<span>board</span></h3>
@@ -2386,6 +2385,7 @@ function App() {
             onSwitchWhiteboard={switchWhiteboard}
             onReorderWhiteboards={reorderWhiteboards}
             isOpen={whiteboardDrawerOpen}
+            onClose={() => setWhiteboardDrawerOpen(false)}
           />
         </div>
       </div>
@@ -3623,6 +3623,8 @@ const WHITEBOARD_SIZES = [
   { value: 2, label: 'Thin' },
   { value: 4, label: 'Medium' },
   { value: 8, label: 'Thick' },
+  { value: 14, label: 'Heavy' },
+  { value: 22, label: 'Extra Heavy' },
 ]
 
 function getSvgPathFromStroke(stroke) {
@@ -3649,6 +3651,7 @@ function WhiteboardDrawer({
   onSwitchWhiteboard,
   onReorderWhiteboards,
   isOpen,
+  onClose,
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -3658,11 +3661,23 @@ function WhiteboardDrawer({
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentPoints, setCurrentPoints] = useState([])
   const [undoStack, setUndoStack] = useState([])
+  const [redoStack, setRedoStack] = useState([])
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null)
+  const eraserStartStrokesRef = useRef(null)
   const [dragTileIndex, setDragTileIndex] = useState(null)
   const [dragOverTileIndex, setDragOverTileIndex] = useState(null)
 
   const activeWhiteboard = getActiveWhiteboard()
+
+  // Reset tool defaults when drawer opens
+  useEffect(() => {
+    if (isOpen) {
+      setTool('pen')
+      setColor('#000000')
+      setSize(4)
+    }
+  }, [isOpen])
 
   // Ensure at least one whiteboard exists
   useEffect(() => {
@@ -3671,51 +3686,54 @@ function WhiteboardDrawer({
     }
   }, [isOpen, whiteboardsData.whiteboards.length, onAddWhiteboard])
 
-  // Resize canvas to match container
-  useEffect(() => {
-    if (!isOpen || !canvasRef.current || !containerRef.current) return
+  // Keep a ref to strokes so redraw always uses current data
+  const strokesRef = useRef(activeWhiteboard?.strokes || [])
+  strokesRef.current = activeWhiteboard?.strokes || []
 
-    const resizeCanvas = () => {
-      const canvas = canvasRef.current
-      const container = containerRef.current
-      if (!canvas || !container) return
-      const rect = container.getBoundingClientRect()
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = rect.width * dpr
-      canvas.height = rect.height * dpr
-      canvas.style.width = rect.width + 'px'
-      canvas.style.height = rect.height + 'px'
-      const ctx = canvas.getContext('2d')
-      ctx.scale(dpr, dpr)
-      redrawCanvas()
-    }
-
-    const timer = setTimeout(resizeCanvas, 250)
-    window.addEventListener('resize', resizeCanvas)
-    return () => {
-      clearTimeout(timer)
-      window.removeEventListener('resize', resizeCanvas)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, activeWhiteboard?.id])
-
-  // Redraw when strokes change
-  useEffect(() => {
-    if (isOpen) redrawCanvas()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWhiteboard?.strokes, isOpen])
-
-  const redrawCanvas = () => {
+  const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     const dpr = window.devicePixelRatio || 1
     ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr)
-    if (!activeWhiteboard) return
-    for (const stroke of activeWhiteboard.strokes) {
+    for (const stroke of strokesRef.current) {
       drawStroke(ctx, stroke.points, stroke.color, stroke.size)
     }
-  }
+  }, [])
+
+  const resizeAndRedraw = useCallback(() => {
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return
+    const rect = container.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = rect.width * dpr
+    canvas.height = rect.height * dpr
+    canvas.style.width = rect.width + 'px'
+    canvas.style.height = rect.height + 'px'
+    const ctx = canvas.getContext('2d')
+    ctx.scale(dpr, dpr)
+    redrawCanvas()
+  }, [redrawCanvas])
+
+  // Resize canvas via ResizeObserver
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return
+
+    const timer = setTimeout(resizeAndRedraw, 250)
+    const observer = new ResizeObserver(resizeAndRedraw)
+    observer.observe(containerRef.current)
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [isOpen, activeWhiteboard?.id, resizeAndRedraw])
+
+  // Redraw when strokes change
+  useEffect(() => {
+    if (isOpen) redrawCanvas()
+  }, [activeWhiteboard?.strokes, isOpen, redrawCanvas])
 
   const drawStroke = (ctx, points, strokeColor, strokeSize) => {
     const outlinePoints = getStroke(points, {
@@ -3748,6 +3766,7 @@ function WhiteboardDrawer({
     const point = getCanvasPoint(e)
 
     if (tool === 'eraser') {
+      eraserStartStrokesRef.current = [...activeWhiteboard.strokes]
       eraseAtPoint(point)
       setIsDrawing(true)
       return
@@ -3755,7 +3774,6 @@ function WhiteboardDrawer({
 
     setIsDrawing(true)
     setCurrentPoints([point])
-    setUndoStack([])
   }
 
   const handlePointerMove = (e) => {
@@ -3790,8 +3808,17 @@ function WhiteboardDrawer({
     setIsDrawing(false)
 
     if (tool === 'pen' && currentPoints.length > 0) {
+      setUndoStack(prev => [...prev, [...activeWhiteboard.strokes]])
+      setRedoStack([])
       onAddStroke({ points: currentPoints, color, size })
       setCurrentPoints([])
+    } else if (tool === 'eraser') {
+      const before = eraserStartStrokesRef.current
+      if (before && before.length !== activeWhiteboard.strokes.length) {
+        setUndoStack(prev => [...prev, before])
+        setRedoStack([])
+      }
+      eraserStartStrokesRef.current = null
     }
   }
 
@@ -3811,19 +3838,21 @@ function WhiteboardDrawer({
   }
 
   const handleUndo = () => {
-    if (!activeWhiteboard || activeWhiteboard.strokes.length === 0) return
-    const strokes = [...activeWhiteboard.strokes]
-    const removed = strokes.pop()
-    setUndoStack(prev => [...prev, removed])
-    onSetStrokes(strokes)
+    if (!activeWhiteboard || undoStack.length === 0) return
+    setRedoStack(prev => [...prev, [...activeWhiteboard.strokes]])
+    const stack = [...undoStack]
+    const prevStrokes = stack.pop()
+    setUndoStack(stack)
+    onSetStrokes(prevStrokes)
   }
 
   const handleRedo = () => {
-    if (undoStack.length === 0) return
-    const stack = [...undoStack]
-    const restored = stack.pop()
-    setUndoStack(stack)
-    onAddStroke(restored)
+    if (!activeWhiteboard || redoStack.length === 0) return
+    setUndoStack(prev => [...prev, [...activeWhiteboard.strokes]])
+    const stack = [...redoStack]
+    const nextStrokes = stack.pop()
+    setRedoStack(stack)
+    onSetStrokes(nextStrokes)
   }
 
   const handleClear = () => {
@@ -3832,8 +3861,9 @@ function WhiteboardDrawer({
   }
 
   const confirmClear = () => {
+    setUndoStack(prev => [...prev, [...activeWhiteboard.strokes]])
+    setRedoStack([])
     onSetStrokes([])
-    setUndoStack([])
     setClearConfirmOpen(false)
   }
 
@@ -3852,12 +3882,14 @@ function WhiteboardDrawer({
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
         e.preventDefault()
         handleClear()
+      } else if (e.key === 'Escape') {
+        onClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, activeWhiteboard?.strokes, undoStack])
+  }, [isOpen, activeWhiteboard?.strokes, undoStack, redoStack, onClose])
 
   // Tile drag-and-drop handlers
   const handleTileDragStart = (e, index) => {
@@ -3922,7 +3954,7 @@ function WhiteboardDrawer({
           <button
             className="whiteboard-tool-btn"
             onClick={handleRedo}
-            disabled={!undoStack.length}
+            disabled={!redoStack.length}
             title="Redo (Ctrl+Shift+Z)"
           >
             <Redo2 size={14} />
@@ -3990,7 +4022,7 @@ function WhiteboardDrawer({
             isDragging={dragTileIndex === index}
             isDragOver={dragOverTileIndex === index}
             onClick={() => onSwitchWhiteboard(wb.id)}
-            onDelete={() => onDeleteWhiteboard(wb.id)}
+            onDelete={() => wb.strokes.length > 0 ? setDeleteConfirmId(wb.id) : onDeleteWhiteboard(wb.id)}
             onDragStart={(e) => handleTileDragStart(e, index)}
             onDragOver={(e) => handleTileDragOver(e, index)}
             onDrop={(e) => handleTileDrop(e, index)}
@@ -4006,6 +4038,17 @@ function WhiteboardDrawer({
         onConfirm={confirmClear}
         title="Clear Whiteboard"
         message="Are you sure you want to clear all drawings on this whiteboard?"
+      />
+
+      <ConfirmDialog
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => {
+          onDeleteWhiteboard(deleteConfirmId)
+          setDeleteConfirmId(null)
+        }}
+        title="Delete Whiteboard"
+        message="Are you sure you want to delete this whiteboard? This cannot be undone."
       />
     </>
   )
@@ -4034,14 +4077,14 @@ function WhiteboardTile({
     if (!canvas) return
 
     const dpr = window.devicePixelRatio || 1
-    canvas.width = 48 * dpr
-    canvas.height = 36 * dpr
-    canvas.style.width = '48px'
-    canvas.style.height = '36px'
+    canvas.width = 96 * dpr
+    canvas.height = 72 * dpr
+    canvas.style.width = '96px'
+    canvas.style.height = '72px'
 
     const ctx = canvas.getContext('2d')
     ctx.scale(dpr, dpr)
-    ctx.clearRect(0, 0, 48, 36)
+    ctx.clearRect(0, 0, 96, 72)
 
     if (whiteboard.strokes.length === 0) return
 
@@ -4058,8 +4101,8 @@ function WhiteboardTile({
     const strokeWidth = maxX - minX || 1
     const strokeHeight = maxY - minY || 1
     const padding = 4
-    const scaleX = (48 - padding * 2) / strokeWidth
-    const scaleY = (36 - padding * 2) / strokeHeight
+    const scaleX = (96 - padding * 2) / strokeWidth
+    const scaleY = (72 - padding * 2) / strokeHeight
     const scale = Math.min(scaleX, scaleY)
 
     ctx.save()

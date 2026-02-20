@@ -1809,7 +1809,7 @@
 
 .whiteboard-drawer {
     position: fixed;
-    bottom: 0;
+    inset: 16px 16px 0;
     z-index: 998;
     background: var(--paper);
     border-top-left-radius: var(--card-radius);
@@ -1960,8 +1960,8 @@
 }
 
 .whiteboard-tile {
-    width: 48px;
-    height: 36px;
+    width: 96px;
+    height: 72px;
     border-radius: 4px;
     border: 2px solid var(--rule);
     background: #fafafa;
@@ -1998,13 +1998,13 @@
 .whiteboard-tile-delete {
     position: absolute;
     inset: -1px -1px auto auto;
-    width: 14px;
-    height: 14px;
-    border-radius: 0 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 0 4px;
     background: var(--danger, #e74c3c);
     color: white;
-    font-size: 9px;
-    line-height: 14px;
+    font-size: 11px;
+    line-height: 18px;
     text-align: center;
     cursor: pointer;
     opacity: 0;
@@ -2016,8 +2016,8 @@
 }
 
 .whiteboard-tile-add {
-    width: 48px;
-    height: 36px;
+    width: 96px;
+    height: 72px;
     border-radius: 4px;
     border: 2px dashed var(--rule);
     background: transparent;
