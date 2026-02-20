@@ -3607,6 +3607,411 @@ function HabitTrackerDrawer({ habits, onToggleEntry, onEditHabit }) {
 }
 
 // ============================================
+// WHITEBOARD DRAWER COMPONENT
+// ============================================
+
+const WHITEBOARD_COLORS = [
+  { value: '#000000', label: 'Black' },
+  { value: '#e74c3c', label: 'Red' },
+  { value: '#2980b9', label: 'Blue' },
+  { value: '#27ae60', label: 'Green' },
+  { value: '#f39c12', label: 'Orange' },
+  { value: '#8e44ad', label: 'Purple' },
+]
+
+const WHITEBOARD_SIZES = [
+  { value: 2, label: 'Thin' },
+  { value: 4, label: 'Medium' },
+  { value: 8, label: 'Thick' },
+]
+
+function getSvgPathFromStroke(stroke) {
+  if (!stroke.length) return ''
+  const d = stroke.reduce(
+    (acc, [x0, y0], i, arr) => {
+      const [x1, y1] = arr[(i + 1) % arr.length]
+      acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2)
+      return acc
+    },
+    ['M', ...stroke[0], 'Q']
+  )
+  d.push('Z')
+  return d.join(' ')
+}
+
+function WhiteboardDrawer({
+  whiteboardsData,
+  getActiveWhiteboard,
+  onAddStroke,
+  onSetStrokes,
+  onAddWhiteboard,
+  onDeleteWhiteboard,
+  onSwitchWhiteboard,
+  onReorderWhiteboards,
+  isOpen,
+}) {
+  const canvasRef = useRef(null)
+  const containerRef = useRef(null)
+  const [tool, setTool] = useState('pen')
+  const [color, setColor] = useState('#000000')
+  const [size, setSize] = useState(4)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [currentPoints, setCurrentPoints] = useState([])
+  const [undoStack, setUndoStack] = useState([])
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const [dragTileIndex, setDragTileIndex] = useState(null)
+  const [dragOverTileIndex, setDragOverTileIndex] = useState(null)
+
+  const activeWhiteboard = getActiveWhiteboard()
+
+  // Ensure at least one whiteboard exists
+  useEffect(() => {
+    if (isOpen && whiteboardsData.whiteboards.length === 0) {
+      onAddWhiteboard()
+    }
+  }, [isOpen, whiteboardsData.whiteboards.length, onAddWhiteboard])
+
+  // Resize canvas to match container
+  useEffect(() => {
+    if (!isOpen || !canvasRef.current || !containerRef.current) return
+
+    const resizeCanvas = () => {
+      const canvas = canvasRef.current
+      const container = containerRef.current
+      if (!canvas || !container) return
+      const rect = container.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = rect.width * dpr
+      canvas.height = rect.height * dpr
+      canvas.style.width = rect.width + 'px'
+      canvas.style.height = rect.height + 'px'
+      const ctx = canvas.getContext('2d')
+      ctx.scale(dpr, dpr)
+      redrawCanvas()
+    }
+
+    const timer = setTimeout(resizeCanvas, 250)
+    window.addEventListener('resize', resizeCanvas)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('resize', resizeCanvas)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeWhiteboard?.id])
+
+  // Redraw when strokes change
+  useEffect(() => {
+    if (isOpen) redrawCanvas()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWhiteboard?.strokes, isOpen])
+
+  const redrawCanvas = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const dpr = window.devicePixelRatio || 1
+    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr)
+    if (!activeWhiteboard) return
+    for (const stroke of activeWhiteboard.strokes) {
+      drawStroke(ctx, stroke.points, stroke.color, stroke.size)
+    }
+  }
+
+  const drawStroke = (ctx, points, strokeColor, strokeSize) => {
+    const outlinePoints = getStroke(points, {
+      size: strokeSize,
+      thinning: 0.5,
+      smoothing: 0.5,
+      streamline: 0.5,
+    })
+    const pathData = getSvgPathFromStroke(outlinePoints)
+    if (!pathData) return
+    const path = new Path2D(pathData)
+    ctx.fillStyle = strokeColor
+    ctx.fill(path)
+  }
+
+  const getCanvasPoint = (e) => {
+    const canvas = canvasRef.current
+    if (!canvas) return [0, 0, 0.5]
+    const rect = canvas.getBoundingClientRect()
+    return [
+      e.clientX - rect.left,
+      e.clientY - rect.top,
+      e.pressure || 0.5,
+    ]
+  }
+
+  const handlePointerDown = (e) => {
+    if (!activeWhiteboard) return
+    e.preventDefault()
+    const point = getCanvasPoint(e)
+
+    if (tool === 'eraser') {
+      eraseAtPoint(point)
+      setIsDrawing(true)
+      return
+    }
+
+    setIsDrawing(true)
+    setCurrentPoints([point])
+    setUndoStack([])
+  }
+
+  const handlePointerMove = (e) => {
+    if (!isDrawing || !activeWhiteboard) return
+    e.preventDefault()
+    const point = getCanvasPoint(e)
+
+    if (tool === 'eraser') {
+      eraseAtPoint(point)
+      return
+    }
+
+    setCurrentPoints(prev => {
+      const next = [...prev, point]
+      const canvas = canvasRef.current
+      if (canvas) {
+        const ctx = canvas.getContext('2d')
+        const dpr = window.devicePixelRatio || 1
+        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr)
+        for (const stroke of activeWhiteboard.strokes) {
+          drawStroke(ctx, stroke.points, stroke.color, stroke.size)
+        }
+        drawStroke(ctx, next, color, size)
+      }
+      return next
+    })
+  }
+
+  const handlePointerUp = (e) => {
+    if (!isDrawing) return
+    e.preventDefault()
+    setIsDrawing(false)
+
+    if (tool === 'pen' && currentPoints.length > 0) {
+      onAddStroke({ points: currentPoints, color, size })
+      setCurrentPoints([])
+    }
+  }
+
+  const eraseAtPoint = ([x, y]) => {
+    if (!activeWhiteboard) return
+    const hitRadius = 10
+    const remaining = activeWhiteboard.strokes.filter(stroke => {
+      return !stroke.points.some(([px, py]) => {
+        const dx = px - x
+        const dy = py - y
+        return dx * dx + dy * dy < hitRadius * hitRadius
+      })
+    })
+    if (remaining.length !== activeWhiteboard.strokes.length) {
+      onSetStrokes(remaining)
+    }
+  }
+
+  const handleUndo = () => {
+    if (!activeWhiteboard || activeWhiteboard.strokes.length === 0) return
+    const strokes = [...activeWhiteboard.strokes]
+    const removed = strokes.pop()
+    setUndoStack(prev => [...prev, removed])
+    onSetStrokes(strokes)
+  }
+
+  const handleRedo = () => {
+    if (undoStack.length === 0) return
+    const stack = [...undoStack]
+    const restored = stack.pop()
+    setUndoStack(stack)
+    onAddStroke(restored)
+  }
+
+  const handleClear = () => {
+    if (!activeWhiteboard || activeWhiteboard.strokes.length === 0) return
+    setClearConfirmOpen(true)
+  }
+
+  const confirmClear = () => {
+    onSetStrokes([])
+    setUndoStack([])
+    setClearConfirmOpen(false)
+  }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      const isMod = e.metaKey || e.ctrlKey
+      if (isMod && e.shiftKey && e.key === 'z') {
+        e.preventDefault()
+        handleRedo()
+      } else if (isMod && e.key === 'z') {
+        e.preventDefault()
+        handleUndo()
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+        e.preventDefault()
+        handleClear()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeWhiteboard?.strokes, undoStack])
+
+  // Tile drag-and-drop handlers
+  const handleTileDragStart = (e, index) => {
+    setDragTileIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleTileDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverTileIndex(index)
+  }
+
+  const handleTileDrop = (e, toIndex) => {
+    e.preventDefault()
+    if (dragTileIndex !== null && dragTileIndex !== toIndex) {
+      onReorderWhiteboards(dragTileIndex, toIndex)
+    }
+    setDragTileIndex(null)
+    setDragOverTileIndex(null)
+  }
+
+  const handleTileDragEnd = () => {
+    setDragTileIndex(null)
+    setDragOverTileIndex(null)
+  }
+
+  if (!activeWhiteboard) return null
+
+  return (
+    <>
+      {/* Toolbar */}
+      <div className="whiteboard-toolbar">
+        <div className="whiteboard-toolbar-group">
+          <button
+            className={`whiteboard-tool-btn ${tool === 'pen' ? 'active' : ''}`}
+            onClick={() => setTool('pen')}
+            title="Pen"
+          >
+            <Pen size={14} />
+          </button>
+          <button
+            className={`whiteboard-tool-btn ${tool === 'eraser' ? 'active' : ''}`}
+            onClick={() => setTool('eraser')}
+            title="Eraser"
+          >
+            <Eraser size={14} />
+          </button>
+        </div>
+
+        <div className="whiteboard-toolbar-divider" />
+
+        <div className="whiteboard-toolbar-group">
+          <button
+            className="whiteboard-tool-btn"
+            onClick={handleUndo}
+            disabled={!activeWhiteboard.strokes.length}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 size={14} />
+          </button>
+          <button
+            className="whiteboard-tool-btn"
+            onClick={handleRedo}
+            disabled={!undoStack.length}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 size={14} />
+          </button>
+          <button
+            className="whiteboard-tool-btn"
+            onClick={handleClear}
+            disabled={!activeWhiteboard.strokes.length}
+            title="Clear (Delete)"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+
+        <div className="whiteboard-toolbar-divider" />
+
+        <div className="whiteboard-toolbar-group">
+          {WHITEBOARD_COLORS.map(c => (
+            <button
+              key={c.value}
+              className={`whiteboard-color-btn ${color === c.value ? 'active' : ''}`}
+              style={{ background: c.value }}
+              onClick={() => setColor(c.value)}
+              title={c.label}
+            />
+          ))}
+        </div>
+
+        <div className="whiteboard-toolbar-divider" />
+
+        <div className="whiteboard-toolbar-group">
+          {WHITEBOARD_SIZES.map(s => (
+            <button
+              key={s.value}
+              className={`whiteboard-size-btn ${size === s.value ? 'active' : ''}`}
+              onClick={() => setSize(s.value)}
+              title={s.label}
+            >
+              <div className="whiteboard-size-dot" style={{ width: s.value + 2, height: s.value + 2 }} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Canvas */}
+      <div className="whiteboard-canvas-container" ref={containerRef}>
+        <canvas
+          ref={canvasRef}
+          style={{ cursor: tool === 'eraser' ? 'crosshair' : 'crosshair' }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        />
+      </div>
+
+      {/* Thumbnail tiles */}
+      <div className="whiteboard-tiles">
+        {whiteboardsData.whiteboards.map((wb, index) => (
+          <WhiteboardTile
+            key={wb.id}
+            whiteboard={wb}
+            isActive={wb.id === activeWhiteboard.id}
+            index={index}
+            isDragging={dragTileIndex === index}
+            isDragOver={dragOverTileIndex === index}
+            onClick={() => onSwitchWhiteboard(wb.id)}
+            onDelete={() => onDeleteWhiteboard(wb.id)}
+            onDragStart={(e) => handleTileDragStart(e, index)}
+            onDragOver={(e) => handleTileDragOver(e, index)}
+            onDrop={(e) => handleTileDrop(e, index)}
+            onDragEnd={handleTileDragEnd}
+          />
+        ))}
+        <button className="whiteboard-tile-add" onClick={onAddWhiteboard} title="New whiteboard">+</button>
+      </div>
+
+      <ConfirmDialog
+        isOpen={clearConfirmOpen}
+        onClose={() => setClearConfirmOpen(false)}
+        onConfirm={confirmClear}
+        title="Clear Whiteboard"
+        message="Are you sure you want to clear all drawings on this whiteboard?"
+      />
+    </>
+  )
+}
+
+// ============================================
 // MEETINGS SECTION COMPONENT
 // ============================================
 
