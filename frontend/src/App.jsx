@@ -675,7 +675,7 @@ function App() {
       const el = habitsSectionRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      setTriggerLeft(rect.right - 88)
+      setTriggerLeft(rect.right - 120)
       if (habitDrawerOpen || secondDrawerOpen || whiteboardDrawerOpen) {
         const headerEl = el.querySelector('.section-header')
         const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
@@ -2245,17 +2245,24 @@ function App() {
         <div className="drawer-trigger-group" style={{ left: triggerLeft }}>
           <button
             className={`drawer-trigger ${habitDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setSecondDrawerOpen(false) }}
+            onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
             title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
           >
             <BarChart3 size={18} />
           </button>
           <button
             className={`drawer-trigger ${secondDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setSecondDrawerOpen(!secondDrawerOpen); setHabitDrawerOpen(false) }}
+            onClick={() => { setSecondDrawerOpen(!secondDrawerOpen); setHabitDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
             title={secondDrawerOpen ? 'Close pane' : 'Open pane'}
           >
             <Columns4 size={18} />
+          </button>
+          <button
+            className={`drawer-trigger ${whiteboardDrawerOpen ? 'active' : ''}`}
+            onClick={() => { setWhiteboardDrawerOpen(!whiteboardDrawerOpen); setHabitDrawerOpen(false); setSecondDrawerOpen(false) }}
+            title={whiteboardDrawerOpen ? 'Close whiteboard' : 'Open whiteboard'}
+          >
+            <Pen size={18} />
           </button>
         </div>
       )}
@@ -2357,6 +2364,29 @@ function App() {
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Third Drawer - Whiteboard */}
+      <div
+        className={`whiteboard-drawer ${whiteboardDrawerOpen ? 'open' : ''}`}
+        style={drawerStyle}
+      >
+        <div className="habit-tracker-drawer-header">
+          <h3 className="habit-tracker-drawer-title">White<span>board</span></h3>
+        </div>
+        <div className="whiteboard-drawer-body">
+          <WhiteboardDrawer
+            whiteboardsData={whiteboardsData}
+            getActiveWhiteboard={getActiveWhiteboard}
+            onAddStroke={(stroke) => updateActiveWhiteboardStrokes(prev => [...prev, stroke])}
+            onSetStrokes={(strokes) => updateActiveWhiteboardStrokes(strokes)}
+            onAddWhiteboard={addWhiteboard}
+            onDeleteWhiteboard={deleteWhiteboard}
+            onSwitchWhiteboard={switchWhiteboard}
+            onReorderWhiteboards={reorderWhiteboards}
+            isOpen={whiteboardDrawerOpen}
+          />
         </div>
       </div>
 
