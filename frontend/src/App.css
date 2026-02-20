@@ -2000,7 +2000,7 @@
     inset: -1px -1px auto auto;
     width: 14px;
     height: 14px;
-    border-radius: 0 3px 0 3px;
+    border-radius: 0 3px;
     background: var(--danger, #e74c3c);
     color: white;
     font-size: 9px;
