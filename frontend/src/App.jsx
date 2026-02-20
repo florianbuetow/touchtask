@@ -68,6 +68,7 @@ const STORAGE_KEYS = {
   MEETINGS: 'touchtask_meetings',
   HABIT_TRACKER: 'touchtask_habit_tracker',
   PROJECT_BOARD: 'touchtask_project_board',
+  WHITEBOARDS: 'touchtask_whiteboards',
 }
 
 const getDefaultSettings = () => ({
@@ -453,6 +454,32 @@ const loadProjectBoard = () => {
 
 const saveProjectBoard = (data) => {
   localStorage.setItem(STORAGE_KEYS.PROJECT_BOARD, JSON.stringify(data))
+}
+
+const getDefaultWhiteboards = () => ({
+  activeWhiteboardId: null,
+  whiteboards: []
+})
+
+const createBlankWhiteboard = () => ({
+  id: generateId(),
+  name: 'Scratch',
+  strokes: [],
+  createdAt: Date.now()
+})
+
+const loadWhiteboards = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.WHITEBOARDS)
+    return data ? JSON.parse(data) : getDefaultWhiteboards()
+  } catch (e) {
+    console.error('Error loading whiteboards:', e)
+    return getDefaultWhiteboards()
+  }
+}
+
+const saveWhiteboards = (data) => {
+  localStorage.setItem(STORAGE_KEYS.WHITEBOARDS, JSON.stringify(data))
 }
 
 const initializeDailyState = (masterBlocks, existingDailyState) => {
