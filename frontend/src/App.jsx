@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pencil, Recycle, StickyNote, Timer, Columns4, CalendarCheck, LayoutList } from 'lucide-react'
+import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pen, Pencil, Recycle, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
 import './App.css'
+import { getStroke } from 'perfect-freehand'
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -601,6 +602,10 @@ function App() {
   const [deleteProjectConfirmOpen, setDeleteProjectConfirmOpen] = useState(false)
   const [deletingProjectId, setDeletingProjectId] = useState(null)
 
+  // Whiteboard drawer state
+  const [whiteboardDrawerOpen, setWhiteboardDrawerOpen] = useState(false)
+  const [whiteboardsData, setWhiteboardsData] = useState(getDefaultWhiteboards())
+
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' })
   const showAlert = (title, message) => setAlertDialog({ isOpen: true, title, message })
@@ -631,6 +636,8 @@ function App() {
       console.log('TouchTask: Habit tracker loaded', loadedHabitTracker)
       const loadedProjectBoard = loadProjectBoard()
       console.log('TouchTask: Project board loaded', loadedProjectBoard)
+      const loadedWhiteboards = loadWhiteboards()
+      console.log('TouchTask: Whiteboards loaded', loadedWhiteboards)
 
       setMasterBlocks(master)
       setDailyState(daily)
@@ -639,6 +646,7 @@ function App() {
       setMeetings(loadedMeetings)
       setHabitTracker(loadedHabitTracker)
       setProjectBoard(loadedProjectBoard)
+      setWhiteboardsData(loadedWhiteboards)
       setSettings(appSettings)
       setTimerState(prev => ({
         ...prev,
@@ -668,7 +676,7 @@ function App() {
       if (!el) return
       const rect = el.getBoundingClientRect()
       setTriggerLeft(rect.right - 88)
-      if (habitDrawerOpen || secondDrawerOpen) {
+      if (habitDrawerOpen || secondDrawerOpen || whiteboardDrawerOpen) {
         const headerEl = el.querySelector('.section-header')
         const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
         setDrawerStyle({
@@ -681,7 +689,7 @@ function App() {
     updatePosition()
     window.addEventListener('resize', updatePosition)
     return () => window.removeEventListener('resize', updatePosition)
-  }, [habitDrawerOpen, secondDrawerOpen, loading])
+  }, [habitDrawerOpen, secondDrawerOpen, whiteboardDrawerOpen, loading])
 
   // Close habit drawer on click outside (project board only toggles via its button)
   useEffect(() => {
@@ -1010,6 +1018,7 @@ function App() {
       meetings: meetings.items,
       habitTracker: habitTracker.habits,
       projectBoard: projectBoard.projects,
+      whiteboards: whiteboardsData,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -1102,6 +1111,11 @@ function App() {
     saveProjectBoard(loadedProjectBoard)
     setProjectBoard(loadedProjectBoard)
 
+    // Load whiteboards
+    const loadedWhiteboards = pendingLoadData.whiteboards || getDefaultWhiteboards()
+    saveWhiteboards(loadedWhiteboards)
+    setWhiteboardsData(loadedWhiteboards)
+
     // Reset settings to defaults
     const defaultSettings = getDefaultSettings()
     saveSettings(defaultSettings)
@@ -1154,6 +1168,11 @@ function App() {
     const emptyProjectBoard = { projects: [] }
     saveProjectBoard(emptyProjectBoard)
     setProjectBoard(emptyProjectBoard)
+
+    // Clear whiteboards
+    const emptyWhiteboards = getDefaultWhiteboards()
+    saveWhiteboards(emptyWhiteboards)
+    setWhiteboardsData(emptyWhiteboards)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -1274,6 +1293,11 @@ function App() {
     }
     saveProjectBoard(demoProjectBoard)
     setProjectBoard(demoProjectBoard)
+
+    // Clear whiteboards (no demo data for whiteboards)
+    const emptyWhiteboards = getDefaultWhiteboards()
+    saveWhiteboards(emptyWhiteboards)
+    setWhiteboardsData(emptyWhiteboards)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
