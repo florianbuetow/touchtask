@@ -1489,6 +1489,69 @@ function App() {
   }
 
   // ============================================
+  // WHITEBOARD HANDLERS
+  // ============================================
+
+  const updateWhiteboards = useCallback((updater) => {
+    setWhiteboardsData(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      saveWhiteboards(next)
+      return next
+    })
+  }, [])
+
+  const getActiveWhiteboard = () => {
+    const { activeWhiteboardId, whiteboards } = whiteboardsData
+    return whiteboards.find(wb => wb.id === activeWhiteboardId) || whiteboards[0] || null
+  }
+
+  const addWhiteboard = () => {
+    const newWb = createBlankWhiteboard()
+    newWb.name = `Whiteboard ${whiteboardsData.whiteboards.length + 1}`
+    updateWhiteboards(prev => ({
+      activeWhiteboardId: newWb.id,
+      whiteboards: [...prev.whiteboards, newWb]
+    }))
+    return newWb
+  }
+
+  const deleteWhiteboard = (id) => {
+    updateWhiteboards(prev => {
+      const remaining = prev.whiteboards.filter(wb => wb.id !== id)
+      if (remaining.length === 0) {
+        const fresh = createBlankWhiteboard()
+        return { activeWhiteboardId: fresh.id, whiteboards: [fresh] }
+      }
+      const newActiveId = prev.activeWhiteboardId === id ? remaining[0].id : prev.activeWhiteboardId
+      return { activeWhiteboardId: newActiveId, whiteboards: remaining }
+    })
+  }
+
+  const switchWhiteboard = (id) => {
+    updateWhiteboards(prev => ({ ...prev, activeWhiteboardId: id }))
+  }
+
+  const updateActiveWhiteboardStrokes = (strokesUpdater) => {
+    updateWhiteboards(prev => ({
+      ...prev,
+      whiteboards: prev.whiteboards.map(wb =>
+        wb.id === prev.activeWhiteboardId
+          ? { ...wb, strokes: typeof strokesUpdater === 'function' ? strokesUpdater(wb.strokes) : strokesUpdater }
+          : wb
+      )
+    }))
+  }
+
+  const reorderWhiteboards = (fromIndex, toIndex) => {
+    updateWhiteboards(prev => {
+      const reordered = [...prev.whiteboards]
+      const [moved] = reordered.splice(fromIndex, 1)
+      reordered.splice(toIndex, 0, moved)
+      return { ...prev, whiteboards: reordered }
+    })
+  }
+
+  // ============================================
   // MEETINGS HANDLERS
   // ============================================
 
