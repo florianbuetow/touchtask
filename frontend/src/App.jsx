@@ -4012,6 +4012,95 @@ function WhiteboardDrawer({
 }
 
 // ============================================
+// WHITEBOARD TILE COMPONENT
+// ============================================
+
+function WhiteboardTile({
+  whiteboard,
+  isActive,
+  isDragging,
+  isDragOver,
+  onClick,
+  onDelete,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}) {
+  const tileCanvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = tileCanvasRef.current
+    if (!canvas) return
+
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = 48 * dpr
+    canvas.height = 36 * dpr
+    canvas.style.width = '48px'
+    canvas.style.height = '36px'
+
+    const ctx = canvas.getContext('2d')
+    ctx.scale(dpr, dpr)
+    ctx.clearRect(0, 0, 48, 36)
+
+    if (whiteboard.strokes.length === 0) return
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const stroke of whiteboard.strokes) {
+      for (const [x, y] of stroke.points) {
+        if (x < minX) minX = x
+        if (y < minY) minY = y
+        if (x > maxX) maxX = x
+        if (y > maxY) maxY = y
+      }
+    }
+
+    const strokeWidth = maxX - minX || 1
+    const strokeHeight = maxY - minY || 1
+    const padding = 4
+    const scaleX = (48 - padding * 2) / strokeWidth
+    const scaleY = (36 - padding * 2) / strokeHeight
+    const scale = Math.min(scaleX, scaleY)
+
+    ctx.save()
+    ctx.translate(padding, padding)
+    ctx.scale(scale, scale)
+    ctx.translate(-minX, -minY)
+
+    for (const stroke of whiteboard.strokes) {
+      const outlinePoints = getStroke(stroke.points, {
+        size: stroke.size,
+        thinning: 0.5,
+        smoothing: 0.5,
+        streamline: 0.5,
+      })
+      const pathData = getSvgPathFromStroke(outlinePoints)
+      if (!pathData) continue
+      const path = new Path2D(pathData)
+      ctx.fillStyle = stroke.color
+      ctx.fill(path)
+    }
+
+    ctx.restore()
+  }, [whiteboard.strokes])
+
+  return (
+    <div
+      className={`whiteboard-tile ${isActive ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      onClick={onClick}
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
+      <canvas ref={tileCanvasRef} />
+      <div className="whiteboard-tile-delete" onClick={(e) => { e.stopPropagation(); onDelete() }}>×</div>
+    </div>
+  )
+}
+
+// ============================================
 // MEETINGS SECTION COMPONENT
 // ============================================
 
