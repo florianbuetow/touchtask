@@ -706,21 +706,19 @@ function App() {
       const el = habitsSectionRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      setTriggerLeft(rect.right - 120)
-      if (habitDrawerOpen || secondDrawerOpen) {
-        const headerEl = el.querySelector('.section-header')
-        const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
-        setDrawerStyle({
-          left: rect.left,
-          width: rect.width,
-          maxHeight: `calc(100vh - ${headerBottom}px)`
-        })
-      }
+      setTriggerLeft(rect.right - 136)
+      const headerEl = el.querySelector('.section-header')
+      const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
+      setDrawerStyle({
+        left: rect.left,
+        width: rect.width,
+        maxHeight: `calc(100vh - ${headerBottom}px)`
+      })
     }
     updatePosition()
     window.addEventListener('resize', updatePosition)
     return () => window.removeEventListener('resize', updatePosition)
-  }, [habitDrawerOpen, secondDrawerOpen, loading])
+  }, [habitDrawerOpen, secondDrawerOpen, showStickyNotes, loading])
 
   // Close habit drawer on click outside (project board only toggles via its button)
   useEffect(() => {
@@ -2496,7 +2494,7 @@ function App() {
       {/* Sticky Notes Drawer */}
       <div
         className={`sticky-notes-drawer ${showStickyNotes ? 'open' : ''}`}
-        style={{ left: drawerStyle.left }}
+        style={{ left: Math.max(0, (drawerStyle.left || 0) + (drawerStyle.width || 0) / 2) }}
       >
         <div className="habit-tracker-drawer-header">
           <h3 className="habit-tracker-drawer-title">Sticky <span>Notes</span></h3>
