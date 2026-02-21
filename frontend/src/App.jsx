@@ -729,6 +729,22 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [habitDrawerOpen])
 
+  // Sticky notes escape handler
+  useEffect(() => {
+    if (!showStickyNotes) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (editingNoteId) {
+          setEditingNoteId(null)
+        } else {
+          setShowStickyNotes(false)
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showStickyNotes, editingNoteId])
+
   // ============================================
   // DAILY STATE HANDLERS
   // ============================================
@@ -2677,6 +2693,59 @@ function App() {
         message={alertDialog.message}
       />
 
+      {/* Sticky Notes Overlay */}
+      {showStickyNotes && (
+        <div
+          className="sticky-notes-overlay"
+          onClick={(e) => {
+            if (editingNoteId) {
+              setEditingNoteId(null)
+              return
+            }
+            const x = e.clientX - 150
+            const y = e.clientY - 150
+            addStickyNote(x, y)
+          }}
+        >
+          {stickyNotes.map(note => (
+            <StickyNoteCard
+              key={note.id}
+              note={note}
+              isEditing={editingNoteId === note.id}
+              isTop={topNoteId === note.id}
+              isDragging={draggingNoteId === note.id}
+              onStartEdit={(id) => setEditingNoteId(id)}
+              onStopEdit={() => setEditingNoteId(null)}
+              onUpdate={updateStickyNote}
+              onDelete={(id) => setDeletingNoteId(id)}
+              onBringToFront={(id) => setTopNoteId(id)}
+              onDragStart={(id, ox, oy) => {
+                setDraggingNoteId(id)
+                setDragOffset({ x: ox, y: oy })
+              }}
+              onDragMove={(cx, cy) => {
+                if (draggingNoteId) {
+                  updateStickyNote(draggingNoteId, {
+                    x: cx - dragOffset.x,
+                    y: cy - dragOffset.y
+                  })
+                }
+              }}
+              onDragEnd={() => setDraggingNoteId(null)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Delete Sticky Note Confirmation */}
+      <ConfirmDialog
+        isOpen={deletingNoteId !== null}
+        onClose={() => setDeletingNoteId(null)}
+        onConfirm={() => deleteStickyNote(deletingNoteId)}
+        title="Delete Sticky Note"
+        message="Are you sure you want to delete this sticky note?"
+      />
+
     </>
   )
 }
@@ -4510,6 +4579,148 @@ function AboutModal({ isOpen, onClose }) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ============================================
+// STICKY NOTE COMPONENT
+// ============================================
+
+function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpdate, onDelete, onBringToFront, onDragStart, onDragMove, onDragEnd, isDragging }) {
+  const titleRef = useRef(null)
+  const bodyRef = useRef(null)
+  const contentRef = useRef(null)
+  const [fontSize, setFontSize] = useState(16)
+
+  // Generate stable random rotation from note id
+  const rotation = useMemo(() => {
+    let hash = 0
+    for (let i = 0; i < note.id.length; i++) {
+      hash = ((hash << 5) - hash) + note.id.charCodeAt(i)
+      hash |= 0
+    }
+    return (hash % 5) - 2 // -2 to 2 degrees
+  }, [note.id])
+
+  // Auto-size font to fit content
+  useEffect(() => {
+    if (isEditing || !contentRef.current) return
+    const el = contentRef.current
+    let size = 18
+    el.style.fontSize = size + 'px'
+    while (el.scrollHeight > el.clientHeight && size > 10) {
+      size -= 1
+      el.style.fontSize = size + 'px'
+    }
+    setFontSize(size)
+  }, [note.title, note.body, isEditing])
+
+  // Focus body textarea when entering edit mode
+  useEffect(() => {
+    if (isEditing && bodyRef.current) {
+      bodyRef.current.focus()
+    }
+  }, [isEditing])
+
+  const handlePointerDown = (e) => {
+    if (isEditing) return
+    e.stopPropagation()
+    onBringToFront(note.id)
+    onDragStart(note.id, e.clientX - note.x, e.clientY - note.y)
+    e.target.setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e) => {
+    if (!isDragging) return
+    e.stopPropagation()
+    onDragMove(e.clientX, e.clientY)
+  }
+
+  const handlePointerUp = (e) => {
+    if (!isDragging) return
+    e.stopPropagation()
+    onDragEnd()
+  }
+
+  const handleDoubleClick = (e) => {
+    e.stopPropagation()
+    onStartEdit(note.id)
+  }
+
+  const handleTitleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      bodyRef.current?.focus()
+    }
+  }
+
+  const handleBodyKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.ctrlKey) {
+      e.preventDefault()
+      onStopEdit()
+    }
+  }
+
+  return (
+    <div
+      className={`sticky-note ${isDragging ? 'dragging' : ''}`}
+      style={{
+        left: note.x,
+        top: note.y,
+        zIndex: isTop ? 10 : 1,
+        transform: `rotate(${rotation}deg)`,
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
+      onClick={(e) => { e.stopPropagation(); onBringToFront(note.id) }}
+    >
+      <button
+        className="sticky-note-delete"
+        onClick={(e) => { e.stopPropagation(); onDelete(note.id) }}
+        title="Delete note"
+      >
+        &times;
+      </button>
+
+      {isEditing ? (
+        <div className="sticky-note-content editing">
+          <input
+            ref={titleRef}
+            className="sticky-note-title-input"
+            value={note.title}
+            onChange={(e) => onUpdate(note.id, { title: e.target.value })}
+            onKeyDown={handleTitleKeyDown}
+            placeholder="Title"
+          />
+          <div className="sticky-note-spacer" />
+          <textarea
+            ref={bodyRef}
+            className="sticky-note-body-input"
+            value={note.body}
+            onChange={(e) => onUpdate(note.id, { body: e.target.value })}
+            onKeyDown={handleBodyKeyDown}
+            placeholder="Type here..."
+          />
+        </div>
+      ) : (
+        <div className="sticky-note-content" ref={contentRef} style={{ fontSize }}>
+          {note.title && (
+            <div className="sticky-note-title">
+              &nbsp;&nbsp;{note.title}&nbsp;&nbsp;
+            </div>
+          )}
+          {note.title && <div className="sticky-note-spacer" />}
+          {note.body && (
+            <div className="sticky-note-body">{note.body}</div>
+          )}
+          {!note.title && !note.body && (
+            <div className="sticky-note-placeholder">Double-click to edit</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
