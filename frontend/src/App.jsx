@@ -1062,6 +1062,7 @@ function App() {
       habitTracker: habitTracker.habits,
       projectBoard: projectBoard.projects,
       whiteboards: whiteboardsData,
+      stickyNotes: stickyNotes,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -1159,6 +1160,11 @@ function App() {
     saveWhiteboards(loadedWhiteboards)
     setWhiteboardsData(loadedWhiteboards)
 
+    // Load sticky notes
+    const loadedStickyNotes = pendingLoadData.stickyNotes || []
+    saveStickyNotes(loadedStickyNotes)
+    setStickyNotes(loadedStickyNotes)
+
     // Reset settings to defaults
     const defaultSettings = getDefaultSettings()
     saveSettings(defaultSettings)
@@ -1216,6 +1222,10 @@ function App() {
     const emptyWhiteboards = getDefaultWhiteboards()
     saveWhiteboards(emptyWhiteboards)
     setWhiteboardsData(emptyWhiteboards)
+
+    // Clear sticky notes
+    saveStickyNotes([])
+    setStickyNotes([])
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -1341,6 +1351,10 @@ function App() {
     const emptyWhiteboards = getDefaultWhiteboards()
     saveWhiteboards(emptyWhiteboards)
     setWhiteboardsData(emptyWhiteboards)
+
+    // Clear sticky notes (no demo data for sticky notes)
+    saveStickyNotes([])
+    setStickyNotes([])
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
