@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pen, Pencil, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
+import { BarChart3, Bell, BellOff, Copy, Eye, EyeOff, Menu, Pen, Pencil, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -4728,13 +4728,26 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
       onDoubleClick={handleDoubleClick}
       onClick={(e) => { e.stopPropagation(); onBringToFront(note.id) }}
     >
-      <button
-        className="sticky-note-delete"
-        onClick={(e) => { e.stopPropagation(); onDelete(note.id) }}
-        title="Delete note"
-      >
-        &times;
-      </button>
+      <div className="sticky-note-actions">
+        <button
+          className="sticky-note-action"
+          onClick={(e) => {
+            e.stopPropagation()
+            const text = [note.title, note.body].filter(Boolean).join('\n')
+            navigator.clipboard.writeText(text)
+          }}
+          title="Copy to clipboard"
+        >
+          <Copy size={12} />
+        </button>
+        <button
+          className="sticky-note-action"
+          onClick={(e) => { e.stopPropagation(); onDelete(note.id) }}
+          title="Delete note"
+        >
+          &times;
+        </button>
+      </div>
 
       {isEditing ? (
         <div className="sticky-note-content editing">

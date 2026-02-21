@@ -2293,10 +2293,16 @@
         inset 1px 1px 0 rgb(255 255 255 / 50%);
 }
 
-.sticky-note-delete {
+.sticky-note-actions {
     position: absolute;
     top: 4px;
     right: 4px;
+    display: flex;
+    gap: 2px;
+    z-index: 2;
+}
+
+.sticky-note-action {
     width: 22px;
     height: 22px;
     border: none;
@@ -2309,10 +2315,12 @@
     border-radius: 50%;
     opacity: 0.4;
     transition: opacity 0.15s ease, background 0.15s ease;
-    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.sticky-note-delete:hover {
+.sticky-note-action:hover {
     opacity: 1;
     background: rgb(0 0 0 / 8%);
 }
