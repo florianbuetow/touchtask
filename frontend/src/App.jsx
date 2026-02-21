@@ -1354,9 +1354,14 @@ function App() {
     saveWhiteboards(emptyWhiteboards)
     setWhiteboardsData(emptyWhiteboards)
 
-    // Clear sticky notes (no demo data for sticky notes)
-    saveStickyNotes([])
-    setStickyNotes([])
+    // Load demo sticky notes
+    const demoStickyNotes = [
+      { id: generateId(), title: 'Shopping List', body: 'Milk\nEggs\nBread\nButter', x: 80, y: 120, createdAt: t() },
+      { id: generateId(), title: 'Meeting Notes', body: 'Discuss Q2 roadmap\nReview sprint velocity\nAssign new tasks', x: 420, y: 180, createdAt: t() },
+      { id: generateId(), title: '', body: 'Call dentist tomorrow!', x: 250, y: 400, createdAt: t() },
+    ]
+    saveStickyNotes(demoStickyNotes)
+    setStickyNotes(demoStickyNotes)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
