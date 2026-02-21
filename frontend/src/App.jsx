@@ -2220,13 +2220,6 @@ function App() {
                 >
                   <Columns4 size={14} />
                 </button>
-                <button
-                  className={`focus-toggle ${showStickyNotes ? 'active' : ''}`}
-                  onClick={() => setShowStickyNotes(!showStickyNotes)}
-                  title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
-                >
-                  <Sticker size={14} />
-                </button>
               </div>
             </div>
           </header>
@@ -2348,24 +2341,31 @@ function App() {
         <div className="drawer-trigger-group" style={{ left: triggerLeft }}>
           <button
             className={`drawer-trigger ${habitDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
+            onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
             title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
           >
             <BarChart3 size={18} />
           </button>
           <button
             className={`drawer-trigger ${secondDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setSecondDrawerOpen(!secondDrawerOpen); setHabitDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
+            onClick={() => { setSecondDrawerOpen(!secondDrawerOpen); setHabitDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
             title={secondDrawerOpen ? 'Close pane' : 'Open pane'}
           >
             <Columns4 size={18} />
           </button>
           <button
             className={`drawer-trigger ${whiteboardDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setWhiteboardDrawerOpen(!whiteboardDrawerOpen); setHabitDrawerOpen(false); setSecondDrawerOpen(false) }}
+            onClick={() => { setWhiteboardDrawerOpen(!whiteboardDrawerOpen); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setShowStickyNotes(false) }}
             title={whiteboardDrawerOpen ? 'Close whiteboard' : 'Open whiteboard'}
           >
             <Pen size={18} />
+          </button>
+          <button
+            className={`drawer-trigger ${showStickyNotes ? 'active' : ''}`}
+            onClick={() => { setShowStickyNotes(!showStickyNotes); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
+            title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
+          >
+            <Sticker size={18} />
           </button>
         </div>
       )}
@@ -2490,6 +2490,24 @@ function App() {
             isOpen={whiteboardDrawerOpen}
             onClose={() => setWhiteboardDrawerOpen(false)}
           />
+        </div>
+      </div>
+
+      {/* Sticky Notes Drawer */}
+      <div className={`sticky-notes-drawer ${showStickyNotes ? 'open' : ''}`}>
+        <div className="habit-tracker-drawer-header">
+          <h3 className="habit-tracker-drawer-title">Sticky <span>Notes</span></h3>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
+              const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
+              addStickyNote(x, y)
+            }}
+            style={{ fontSize: '0.65rem', padding: '0.4rem 0.8rem' }}
+          >
+            + New
+          </button>
         </div>
       </div>
 
@@ -2702,14 +2720,12 @@ function App() {
       {showStickyNotes && (
         <div
           className="sticky-notes-overlay"
-          onClick={(e) => {
+          onClick={() => {
             if (editingNoteId) {
               setEditingNoteId(null)
               return
             }
-            const x = e.clientX - 150
-            const y = e.clientY - 150
-            addStickyNote(x, y)
+            setShowStickyNotes(false)
           }}
         >
           {stickyNotes.map(note => (
@@ -2722,7 +2738,14 @@ function App() {
               onStartEdit={(id) => setEditingNoteId(id)}
               onStopEdit={() => setEditingNoteId(null)}
               onUpdate={updateStickyNote}
-              onDelete={(id) => setDeletingNoteId(id)}
+              onDelete={(id) => {
+                const note = stickyNotes.find(n => n.id === id)
+                if (note && !note.title && !note.body) {
+                  deleteStickyNote(id)
+                } else {
+                  setDeletingNoteId(id)
+                }
+              }}
               onBringToFront={(id) => setTopNoteId(id)}
               onDragStart={(id, ox, oy) => {
                 setDraggingNoteId(id)
