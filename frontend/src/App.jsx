@@ -2491,27 +2491,6 @@ function App() {
         </div>
       </div>
 
-      {/* Sticky Notes Drawer */}
-      <div
-        className={`sticky-notes-drawer ${showStickyNotes ? 'open' : ''}`}
-        style={{ left: Math.max(0, (drawerStyle.left || 0) + (drawerStyle.width || 0) / 2) }}
-      >
-        <div className="habit-tracker-drawer-header">
-          <h3 className="habit-tracker-drawer-title">Sticky <span>Notes</span></h3>
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
-              const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
-              addStickyNote(x, y)
-            }}
-            style={{ fontSize: '0.65rem', padding: '0.4rem 0.8rem' }}
-          >
-            + New
-          </button>
-        </div>
-      </div>
-
       {/* Add/Edit Block Modal */}
       <AddBlockModal
         isOpen={blockModalOpen}
@@ -2726,7 +2705,16 @@ function App() {
               setEditingNoteId(null)
               return
             }
+            const cleaned = stickyNotes.filter(n => n.title || n.body)
+            setStickyNotes(cleaned)
+            saveStickyNotes(cleaned)
             setShowStickyNotes(false)
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            const x = e.clientX - 150
+            const y = e.clientY - 150
+            addStickyNote(x, y)
           }}
         >
           {stickyNotes.map(note => (
