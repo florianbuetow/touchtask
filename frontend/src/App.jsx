@@ -4622,10 +4622,10 @@ function AboutModal({ isOpen, onClose }) {
 // ============================================
 
 function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpdate, onDelete, onBringToFront, onDragStart, onDragMove, onDragEnd, isDragging }) {
+  const noteRef = useRef(null)
   const titleRef = useRef(null)
   const bodyRef = useRef(null)
   const contentRef = useRef(null)
-  const [fontSize, setFontSize] = useState(16)
   const pendingCursorPos = useRef(null)
 
   // Generate stable random rotation from note id
@@ -4635,21 +4635,34 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
       hash = ((hash << 5) - hash) + note.id.charCodeAt(i)
       hash |= 0
     }
-    return (hash % 5) - 2 // -2 to 2 degrees
+    return ((hash % 5) + 5) % 5 - 2 // -2 to 2 degrees
   }, [note.id])
 
-  // Auto-size font to fit content
+  // Prevent wheel events from propagating to background (needs non-passive listener)
   useEffect(() => {
-    if (isEditing || !contentRef.current) return
-    const el = contentRef.current
-    let size = 18
-    el.style.fontSize = size + 'px'
-    while (el.scrollHeight > el.clientHeight && size > 10) {
-      size -= 1
-      el.style.fontSize = size + 'px'
+    const el = noteRef.current
+    if (!el) return
+    const handleWheel = (e) => {
+      const target = el.querySelector('.sticky-note-body-input') || el.querySelector('.sticky-note-body')
+      if (target && target.scrollHeight > target.clientHeight) {
+        e.preventDefault()
+        e.stopPropagation()
+        target.scrollTop += e.deltaY
+        onUpdate(note.id, { scrollTop: target.scrollTop })
+      }
     }
-    setFontSize(size)
-  }, [note.title, note.body, isEditing])
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
+
+  // Restore scroll position
+  useEffect(() => {
+    if (!note.scrollTop) return
+    const target = isEditing
+      ? noteRef.current?.querySelector('.sticky-note-body-input')
+      : contentRef.current?.querySelector('.sticky-note-body')
+    if (target) target.scrollTop = note.scrollTop
+  }, [isEditing])
 
   // Focus body textarea when entering edit mode
   useEffect(() => {
@@ -4726,6 +4739,7 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onDoubleClick={handleDoubleClick}
+      ref={noteRef}
       onClick={(e) => { e.stopPropagation(); onBringToFront(note.id) }}
     >
       <div className="sticky-note-actions">
@@ -4770,7 +4784,7 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
           />
         </div>
       ) : (
-        <div className="sticky-note-content" ref={contentRef} style={{ fontSize }}>
+        <div className="sticky-note-content" ref={contentRef}>
           {note.title && (
             <div className="sticky-note-title">
               &nbsp;&nbsp;{note.title}&nbsp;&nbsp;

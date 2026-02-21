@@ -2359,8 +2359,23 @@
     overflow-wrap: break-word;
     white-space: pre-wrap;
     flex: 1;
-    overflow: hidden;
+    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-color: #a08a40 #FFF2B1;
     color: #3d3500;
+}
+
+.sticky-note-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sticky-note-body::-webkit-scrollbar-track {
+    background: #FFF2B1;
+}
+
+.sticky-note-body::-webkit-scrollbar-thumb {
+    background: #a08a40;
+    border-radius: 3px;
 }
 
 .sticky-note-placeholder {
@@ -2389,6 +2404,10 @@
 .sticky-note-title-input::placeholder {
     color: #a08a40;
     font-weight: 400;
+}
+
+.sticky-note-title-input:focus::placeholder {
+    color: transparent;
 }
 
 .sticky-note-body-input {
