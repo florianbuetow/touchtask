@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pen, Pencil, Recycle, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pen, Pencil, Plus, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -70,6 +70,7 @@ const STORAGE_KEYS = {
   HABIT_TRACKER: 'touchtask_habit_tracker',
   PROJECT_BOARD: 'touchtask_project_board',
   WHITEBOARDS: 'touchtask_whiteboards',
+  STICKY_NOTES: 'touchtask_sticky_notes',
 }
 
 const getDefaultSettings = () => ({
@@ -483,6 +484,20 @@ const saveWhiteboards = (data) => {
   localStorage.setItem(STORAGE_KEYS.WHITEBOARDS, JSON.stringify(data))
 }
 
+const loadStickyNotes = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.STICKY_NOTES)
+    return data ? JSON.parse(data) : []
+  } catch (e) {
+    console.error('Error loading sticky notes:', e)
+    return []
+  }
+}
+
+const saveStickyNotes = (data) => {
+  localStorage.setItem(STORAGE_KEYS.STICKY_NOTES, JSON.stringify(data))
+}
+
 const initializeDailyState = (masterBlocks, existingDailyState) => {
   const today = getTodayString()
 
@@ -585,6 +600,15 @@ function App() {
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
+  // Sticky notes state
+  const [stickyNotes, setStickyNotes] = useState([])
+  const [showStickyNotes, setShowStickyNotes] = useState(false)
+  const [editingNoteId, setEditingNoteId] = useState(null)
+  const [draggingNoteId, setDraggingNoteId] = useState(null)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [topNoteId, setTopNoteId] = useState(null)
+  const [deletingNoteId, setDeletingNoteId] = useState(null)
+
   // Habit tracker drawer state
   const [habitDrawerOpen, setHabitDrawerOpen] = useState(false)
   const [habitModalOpen, setHabitModalOpen] = useState(false)
@@ -638,6 +662,8 @@ function App() {
       console.log('TouchTask: Project board loaded', loadedProjectBoard)
       const loadedWhiteboards = loadWhiteboards()
       console.log('TouchTask: Whiteboards loaded', loadedWhiteboards)
+      const loadedStickyNotes = loadStickyNotes()
+      console.log('TouchTask: Sticky notes loaded', loadedStickyNotes)
 
       setMasterBlocks(master)
       setDailyState(daily)
@@ -647,6 +673,7 @@ function App() {
       setHabitTracker(loadedHabitTracker)
       setProjectBoard(loadedProjectBoard)
       setWhiteboardsData(loadedWhiteboards)
+      setStickyNotes(loadedStickyNotes)
       setSettings(appSettings)
       setTimerState(prev => ({
         ...prev,
@@ -1335,6 +1362,41 @@ function App() {
     const updated = reminders.filter(r => r.id !== id)
     setReminders(updated)
     saveReminders(updated)
+  }
+
+  // ============================================
+  // STICKY NOTES HANDLERS
+  // ============================================
+
+  const addStickyNote = (x, y) => {
+    const newNote = {
+      id: generateId(),
+      title: '',
+      body: '',
+      x,
+      y,
+      createdAt: new Date().toISOString()
+    }
+    const updated = [...stickyNotes, newNote]
+    setStickyNotes(updated)
+    saveStickyNotes(updated)
+    setEditingNoteId(newNote.id)
+    setTopNoteId(newNote.id)
+    return newNote
+  }
+
+  const updateStickyNote = (id, changes) => {
+    const updated = stickyNotes.map(n => n.id === id ? { ...n, ...changes } : n)
+    setStickyNotes(updated)
+    saveStickyNotes(updated)
+  }
+
+  const deleteStickyNote = (id) => {
+    const updated = stickyNotes.filter(n => n.id !== id)
+    setStickyNotes(updated)
+    saveStickyNotes(updated)
+    if (editingNoteId === id) setEditingNoteId(null)
+    setDeletingNoteId(null)
   }
 
   // ============================================
@@ -2124,6 +2186,26 @@ function App() {
                 >
                   <Columns4 size={14} />
                 </button>
+                <button
+                  className={`focus-toggle ${showStickyNotes ? 'active' : ''}`}
+                  onClick={() => setShowStickyNotes(!showStickyNotes)}
+                  title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
+                >
+                  <Sticker size={14} />
+                </button>
+                {showStickyNotes && (
+                  <button
+                    className="focus-toggle active"
+                    onClick={() => {
+                      const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
+                      const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
+                      addStickyNote(x, y)
+                    }}
+                    title="Add sticky note"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
               </div>
             </div>
           </header>
