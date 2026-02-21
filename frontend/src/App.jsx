@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pen, Pencil, Plus, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
+import { BarChart3, Bell, BellOff, Eye, EyeOff, Menu, Pen, Pencil, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -2209,19 +2209,6 @@ function App() {
                 >
                   <Sticker size={14} />
                 </button>
-                {showStickyNotes && (
-                  <button
-                    className="focus-toggle active"
-                    onClick={() => {
-                      const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
-                      const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
-                      addStickyNote(x, y)
-                    }}
-                    title="Add sticky note"
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
               </div>
             </div>
           </header>
