@@ -662,7 +662,11 @@ function App() {
       console.log('TouchTask: Project board loaded', loadedProjectBoard)
       const loadedWhiteboards = loadWhiteboards()
       console.log('TouchTask: Whiteboards loaded', loadedWhiteboards)
-      const loadedStickyNotes = loadStickyNotes()
+      const loadedStickyNotes = loadStickyNotes().map(note => ({
+        ...note,
+        x: Math.max(0, Math.min(note.x, window.innerWidth - 300)),
+        y: Math.max(0, Math.min(note.y, window.innerHeight - 300)),
+      }))
       console.log('TouchTask: Sticky notes loaded', loadedStickyNotes)
 
       setMasterBlocks(master)
@@ -1415,10 +1419,10 @@ function App() {
     return newNote
   }
 
-  const updateStickyNote = (id, changes) => {
+  const updateStickyNote = (id, changes, skipSave) => {
     const updated = stickyNotes.map(n => n.id === id ? { ...n, ...changes } : n)
     setStickyNotes(updated)
-    saveStickyNotes(updated)
+    if (!skipSave) saveStickyNotes(updated)
   }
 
   const deleteStickyNote = (id) => {
@@ -2729,10 +2733,13 @@ function App() {
                   updateStickyNote(draggingNoteId, {
                     x: cx - dragOffset.x,
                     y: cy - dragOffset.y
-                  })
+                  }, true)
                 }
               }}
-              onDragEnd={() => setDraggingNoteId(null)}
+              onDragEnd={() => {
+                saveStickyNotes(stickyNotes)
+                setDraggingNoteId(null)
+              }}
             />
           ))}
         </div>
