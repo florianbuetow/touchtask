@@ -4600,6 +4600,7 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
   const bodyRef = useRef(null)
   const contentRef = useRef(null)
   const [fontSize, setFontSize] = useState(16)
+  const pendingCursorPos = useRef(null)
 
   // Generate stable random rotation from note id
   const rotation = useMemo(() => {
@@ -4630,6 +4631,14 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
       bodyRef.current.focus()
     }
   }, [isEditing])
+
+  // Restore cursor position after React re-render (for Ctrl+Enter newline insertion)
+  useEffect(() => {
+    if (pendingCursorPos.current !== null && bodyRef.current) {
+      bodyRef.current.selectionStart = bodyRef.current.selectionEnd = pendingCursorPos.current
+      pendingCursorPos.current = null
+    }
+  }, [note.body])
 
   const handlePointerDown = (e) => {
     if (isEditing) return
@@ -4664,7 +4673,15 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
   }
 
   const handleBodyKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.ctrlKey) {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault()
+      const start = e.target.selectionStart
+      const end = e.target.selectionEnd
+      const value = e.target.value
+      const newValue = value.substring(0, start) + '\n' + value.substring(end)
+      pendingCursorPos.current = start + 1
+      onUpdate(note.id, { body: newValue })
+    } else if (e.key === 'Enter') {
       e.preventDefault()
       onStopEdit()
     }
