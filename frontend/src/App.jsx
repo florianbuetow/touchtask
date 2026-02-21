@@ -2340,6 +2340,20 @@ function App() {
       {triggerLeft !== null && (
         <div className="drawer-trigger-group" style={{ left: triggerLeft }}>
           <button
+            className={`drawer-trigger ${showStickyNotes ? 'active' : ''}`}
+            onClick={() => { setShowStickyNotes(!showStickyNotes); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
+            title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
+          >
+            <Sticker size={18} />
+          </button>
+          <button
+            className={`drawer-trigger ${whiteboardDrawerOpen ? 'active' : ''}`}
+            onClick={() => { setWhiteboardDrawerOpen(!whiteboardDrawerOpen); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setShowStickyNotes(false) }}
+            title={whiteboardDrawerOpen ? 'Close whiteboard' : 'Open whiteboard'}
+          >
+            <Pen size={18} />
+          </button>
+          <button
             className={`drawer-trigger ${habitDrawerOpen ? 'active' : ''}`}
             onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
             title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
@@ -2352,20 +2366,6 @@ function App() {
             title={secondDrawerOpen ? 'Close pane' : 'Open pane'}
           >
             <Columns4 size={18} />
-          </button>
-          <button
-            className={`drawer-trigger ${whiteboardDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setWhiteboardDrawerOpen(!whiteboardDrawerOpen); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setShowStickyNotes(false) }}
-            title={whiteboardDrawerOpen ? 'Close whiteboard' : 'Open whiteboard'}
-          >
-            <Pen size={18} />
-          </button>
-          <button
-            className={`drawer-trigger ${showStickyNotes ? 'active' : ''}`}
-            onClick={() => { setShowStickyNotes(!showStickyNotes); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
-            title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
-          >
-            <Sticker size={18} />
           </button>
         </div>
       )}
@@ -2494,7 +2494,10 @@ function App() {
       </div>
 
       {/* Sticky Notes Drawer */}
-      <div className={`sticky-notes-drawer ${showStickyNotes ? 'open' : ''}`}>
+      <div
+        className={`sticky-notes-drawer ${showStickyNotes ? 'open' : ''}`}
+        style={{ left: drawerStyle.left }}
+      >
         <div className="habit-tracker-drawer-header">
           <h3 className="habit-tracker-drawer-title">Sticky <span>Notes</span></h3>
           <button
