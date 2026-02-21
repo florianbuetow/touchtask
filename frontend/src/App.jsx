@@ -2344,7 +2344,16 @@ function App() {
         <div className="drawer-trigger-group" style={{ left: triggerLeft }}>
           <button
             className={`drawer-trigger ${showStickyNotes ? 'active' : ''}`}
-            onClick={() => { setShowStickyNotes(!showStickyNotes); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false) }}
+            onClick={() => {
+              const opening = !showStickyNotes
+              setShowStickyNotes(opening)
+              setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false)
+              if (opening && stickyNotes.length === 0) {
+                const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
+                const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
+                addStickyNote(x, y)
+              }
+            }}
             title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
           >
             <Sticker size={18} />
