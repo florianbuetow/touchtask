@@ -2360,22 +2360,12 @@
     white-space: pre-wrap;
     flex: 1;
     overflow-y: scroll;
-    scrollbar-width: thin;
-    scrollbar-color: #a08a40 #FFF2B1;
+    scrollbar-width: none;
     color: #3d3500;
 }
 
 .sticky-note-body::-webkit-scrollbar {
-    width: 6px;
-}
-
-.sticky-note-body::-webkit-scrollbar-track {
-    background: #FFF2B1;
-}
-
-.sticky-note-body::-webkit-scrollbar-thumb {
-    background: #a08a40;
-    border-radius: 3px;
+    display: none;
 }
 
 .sticky-note-placeholder {
@@ -2414,7 +2404,9 @@
     width: 100%;
     flex: 1;
     border: none;
-    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #FFF2B1;
     font-family: inherit;
     font-size: inherit;
     color: #3d3500;
@@ -2422,6 +2414,12 @@
     resize: none;
     padding: 0;
     white-space: pre-wrap;
+    overflow-y: scroll;
+    scrollbar-width: none;
+}
+
+.sticky-note-body-input::-webkit-scrollbar {
+    display: none;
 }
 
 .sticky-note-body-input::placeholder {

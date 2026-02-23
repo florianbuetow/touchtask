@@ -487,7 +487,10 @@ const saveWhiteboards = (data) => {
 const loadStickyNotes = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.STICKY_NOTES)
-    return data ? JSON.parse(data) : []
+    if (!data) return []
+    const parsed = JSON.parse(data)
+    if (Array.isArray(parsed)) return parsed
+    return parsed.notes || []
   } catch (e) {
     console.error('Error loading sticky notes:', e)
     return []
@@ -496,6 +499,17 @@ const loadStickyNotes = () => {
 
 const saveStickyNotes = (data) => {
   localStorage.setItem(STORAGE_KEYS.STICKY_NOTES, JSON.stringify(data))
+}
+
+const clampNotesToViewport = (notes, newW, newH) => {
+  let changed = false
+  const clamped = notes.map(n => {
+    const x = Math.max(0, Math.min(n.x, newW - 300))
+    const y = Math.max(0, Math.min(n.y, newH - 300))
+    if (x !== n.x || y !== n.y) changed = true
+    return x !== n.x || y !== n.y ? { ...n, x, y } : n
+  })
+  return changed ? clamped : notes
 }
 
 const initializeDailyState = (masterBlocks, existingDailyState) => {
@@ -662,11 +676,7 @@ function App() {
       console.log('TouchTask: Project board loaded', loadedProjectBoard)
       const loadedWhiteboards = loadWhiteboards()
       console.log('TouchTask: Whiteboards loaded', loadedWhiteboards)
-      const loadedStickyNotes = loadStickyNotes().map(note => ({
-        ...note,
-        x: Math.max(0, Math.min(note.x, window.innerWidth - 300)),
-        y: Math.max(0, Math.min(note.y, window.innerHeight - 300)),
-      }))
+      const loadedStickyNotes = clampNotesToViewport(loadStickyNotes(), window.innerWidth, window.innerHeight)
       console.log('TouchTask: Sticky notes loaded', loadedStickyNotes)
 
       setMasterBlocks(master)
@@ -731,11 +741,31 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [habitDrawerOpen])
 
-  // Sticky notes escape handler
+  // Sticky notes keyboard shortcuts
   useEffect(() => {
-    if (!showStickyNotes) return
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
+      // Shift+Tab to toggle sticky notes
+      if (e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault()
+        setShowStickyNotes(prev => {
+          const opening = !prev
+          if (opening) {
+            setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false)
+            if (stickyNotes.length === 0) {
+              const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
+              const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
+              addStickyNote(x, y)
+            } else {
+              const clamped = clampNotesToViewport(stickyNotes, window.innerWidth, window.innerHeight)
+              if (clamped !== stickyNotes) { setStickyNotes(clamped); saveStickyNotes(clamped) }
+            }
+          }
+          return opening
+        })
+        return
+      }
+      // Escape to close editing or sticky notes
+      if (e.key === 'Escape' && showStickyNotes) {
         if (editingNoteId) {
           setEditingNoteId(null)
         } else {
@@ -745,7 +775,21 @@ function App() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [showStickyNotes, editingNoteId])
+  }, [showStickyNotes, editingNoteId, stickyNotes.length])
+
+  // Adjust sticky note positions on resize when visible
+  useEffect(() => {
+    if (!showStickyNotes) return
+    const handleResize = () => {
+      setStickyNotes(prev => {
+        const clamped = clampNotesToViewport(prev, window.innerWidth, window.innerHeight)
+        if (clamped !== prev) saveStickyNotes(clamped)
+        return clamped
+      })
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [showStickyNotes])
 
   // ============================================
   // DAILY STATE HANDLERS
@@ -2348,10 +2392,15 @@ function App() {
               const opening = !showStickyNotes
               setShowStickyNotes(opening)
               setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false)
-              if (opening && stickyNotes.length === 0) {
-                const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
-                const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
-                addStickyNote(x, y)
+              if (opening) {
+                if (stickyNotes.length === 0) {
+                  const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
+                  const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
+                  addStickyNote(x, y)
+                } else {
+                  const clamped = clampNotesToViewport(stickyNotes, window.innerWidth, window.innerHeight)
+                  if (clamped !== stickyNotes) { setStickyNotes(clamped); saveStickyNotes(clamped) }
+                }
               }
             }}
             title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
@@ -4626,7 +4675,7 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
   const titleRef = useRef(null)
   const bodyRef = useRef(null)
   const contentRef = useRef(null)
-  const pendingCursorPos = useRef(null)
+
 
   // Generate stable random rotation from note id
   const rotation = useMemo(() => {
@@ -4671,14 +4720,6 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
     }
   }, [isEditing])
 
-  // Restore cursor position after React re-render (for Ctrl+Enter newline insertion)
-  useEffect(() => {
-    if (pendingCursorPos.current !== null && bodyRef.current) {
-      bodyRef.current.selectionStart = bodyRef.current.selectionEnd = pendingCursorPos.current
-      pendingCursorPos.current = null
-    }
-  }, [note.body])
-
   const handlePointerDown = (e) => {
     if (isEditing) return
     e.stopPropagation()
@@ -4712,15 +4753,7 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
   }
 
   const handleBodyKeyDown = (e) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
-      e.preventDefault()
-      const start = e.target.selectionStart
-      const end = e.target.selectionEnd
-      const value = e.target.value
-      const newValue = value.substring(0, start) + '\n' + value.substring(end)
-      pendingCursorPos.current = start + 1
-      onUpdate(note.id, { body: newValue })
-    } else if (e.key === 'Enter') {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
       onStopEdit()
     }
