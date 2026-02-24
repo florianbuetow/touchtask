@@ -4,6 +4,8 @@
 
 A minimalist productivity app that helps you structure your day with time blocks, habits, and focused work sessions. TouchTask combines time blocking, habit tracking, pomodoro timing, and kanban task management into a single, elegant interface.
 
+Live and free to use on [Cracking AI Engineering](https://cracking-ai-engineering.com/touchtask/)
+
 ![TouchTask Main Interface](docs/gfx/main-interface.jpg)
 *The TouchTask dashboard showing the habits section on the left and project tracking on the right*
 
