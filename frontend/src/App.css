@@ -44,7 +44,8 @@
 .menu-dropdown {
     position: absolute;
     top: 100%;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
     margin-top: 0.5rem;
     background: var(--paper);
     border-radius: 8px;
@@ -98,6 +99,18 @@
 
 .brand-clickable:hover {
     opacity: 0.8;
+}
+
+.topbar-github {
+    color: inherit;
+    opacity: 0.25;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-github:hover {
+    opacity: 1;
 }
 
 .topbar-right {
