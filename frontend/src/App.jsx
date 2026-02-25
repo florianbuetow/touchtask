@@ -4811,7 +4811,8 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
             ref={titleRef}
             className="sticky-note-title-input"
             value={note.title}
-            onChange={(e) => onUpdate(note.id, { title: e.target.value })}
+            onChange={(e) => onUpdate(note.id, { title: e.target.value }, true)}
+            onBlur={() => onUpdate(note.id, { title: titleRef.current?.value ?? note.title })}
             onKeyDown={handleTitleKeyDown}
             placeholder="Title"
           />
@@ -4820,7 +4821,8 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
             ref={bodyRef}
             className="sticky-note-body-input"
             value={note.body}
-            onChange={(e) => onUpdate(note.id, { body: e.target.value })}
+            onChange={(e) => onUpdate(note.id, { body: e.target.value }, true)}
+            onBlur={() => onUpdate(note.id, { body: bodyRef.current?.value ?? note.body })}
             onKeyDown={handleBodyKeyDown}
             placeholder="Type here..."
           />
