@@ -1707,6 +1707,7 @@
 .drawer-trigger-group {
     position: fixed;
     bottom: 0;
+    right: 1rem;
     z-index: 999;
     display: flex;
 }
@@ -1800,13 +1801,18 @@
 .second-drawer {
     position: fixed;
     bottom: 0;
+    min-height: 66vh;
+    max-height: calc(100vh - 80px);
+    width: fit-content;
+    min-width: var(--habits-pane-width, 300px);
+    max-width: calc(100vw - 32px);
     z-index: 998;
     background: var(--paper);
     border-top-left-radius: var(--card-radius);
     border-top-right-radius: var(--card-radius);
     box-shadow: 0 -4px 20px rgb(0 0 0 / 15%);
     transform: translateY(100%);
-    transition: transform 200ms ease-out;
+    transition: transform 200ms ease-out, left 200ms ease-out;
     overflow: hidden;
     display: flex;
     flex-flow: column;
@@ -2105,6 +2111,10 @@
     gap: 0.75rem;
 }
 
+.habit-tracker-spacer-row {
+    height: 1.5rem;
+}
+
 .habit-tracker-days {
     display: flex;
     gap: 2px;
@@ -2210,7 +2220,7 @@
 @media (width <= 1200px) {
     .main-layout { grid-template-columns: 1fr; }
     .kanban-section { order: -1; max-height: 500px; }
-    .drawer-trigger-group { right: 1rem; left: auto !important; }
+    .drawer-trigger-group { right: 1rem; }
 }
 
 /* ============================================

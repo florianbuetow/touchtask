@@ -628,6 +628,7 @@ function App() {
   const [habitModalOpen, setHabitModalOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState(null)
   const habitsSectionRef = useRef(null)
+  const secondDrawerRef = useRef(null)
   const [drawerStyle, setDrawerStyle] = useState({})
   const [triggerLeft, setTriggerLeft] = useState(null)
 
@@ -719,11 +720,21 @@ function App() {
       setTriggerLeft(rect.right - 136)
       const headerEl = el.querySelector('.section-header')
       const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
+      document.documentElement.style.setProperty('--habits-pane-width', `${rect.width}px`)
       setDrawerStyle({
         left: rect.left,
         width: rect.width,
         maxHeight: `calc(100vh - ${headerBottom}px)`
       })
+      // Center second drawer on habits pane, clamped to viewport
+      const sd = secondDrawerRef.current
+      if (sd) {
+        const drawerWidth = sd.offsetWidth
+        const paneCenter = rect.left + rect.width / 2
+        const idealLeft = paneCenter - drawerWidth / 2
+        const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - drawerWidth - 16))
+        sd.style.left = `${clampedLeft}px`
+      }
     }
     updatePosition()
     window.addEventListener('resize', updatePosition)
@@ -1925,6 +1936,24 @@ function App() {
     setDragSourceProjectId(sourceProjectId)
     drawerOpenBeforeDrag.current = secondDrawerOpen
     e.dataTransfer.effectAllowed = 'move'
+    // When dragging from project board, capture drag image and collapse on leave
+    if (source === 'project') {
+      const card = e.target.closest('.kanban-task')
+      if (card) {
+        const rect = card.getBoundingClientRect()
+        e.dataTransfer.setDragImage(card, e.clientX - rect.left, e.clientY - rect.top)
+      }
+      const drawer = e.target.closest('.second-drawer')
+      if (drawer) {
+        const onLeave = (ev) => {
+          if (!drawer.contains(ev.relatedTarget)) {
+            setSecondDrawerOpen(false)
+            drawer.removeEventListener('dragleave', onLeave)
+          }
+        }
+        drawer.addEventListener('dragleave', onLeave)
+      }
+    }
   }
 
   const handleDragOver = (e) => {
@@ -1934,6 +1963,7 @@ function App() {
 
   const clearDragState = () => {
     console.log('[DnD] clearing drag state')
+    if (drawerOpenBeforeDrag.current) setSecondDrawerOpen(true)
     setDraggedTaskId(null)
     setDragSource(null)
     setDragSourceProjectId(null)
@@ -2394,7 +2424,7 @@ function App() {
 
       {/* Drawer Trigger Buttons */}
       {triggerLeft !== null && (
-        <div className="drawer-trigger-group" style={{ left: triggerLeft }}>
+        <div className="drawer-trigger-group">
           <button
             className={`drawer-trigger ${showStickyNotes ? 'active' : ''}`}
             onClick={() => {
@@ -2466,8 +2496,8 @@ function App() {
 
       {/* Second Drawer - Project Board */}
       <div
+        ref={secondDrawerRef}
         className={`second-drawer ${secondDrawerOpen ? 'open' : ''}`}
-        style={drawerStyle}
       >
         <div className="habit-tracker-drawer-header">
           <h3 className="habit-tracker-drawer-title">Project <span>Board</span></h3>
@@ -2504,6 +2534,7 @@ function App() {
                         className="kanban-task"
                         draggable
                         onDragStart={(e) => handleDragStart(e, task.id, 'project', project.id)}
+                        onDragEnd={() => { if (drawerOpenBeforeDrag.current) setSecondDrawerOpen(true); clearDragState() }}
                         onDoubleClick={() => openEditProjectTask(project.id, task)}
                       >
                         <div className="kanban-task-header">
@@ -3845,6 +3876,7 @@ function HabitTrackerDrawer({ habits, onToggleEntry, onEditHabit }) {
           </span>
         </div>
       ))}
+      <div className="habit-tracker-row habit-tracker-spacer-row" />
     </div>
   )
 }
