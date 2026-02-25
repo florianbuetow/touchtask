@@ -2412,7 +2412,7 @@ function App() {
                 }
               }
             }}
-            title={showStickyNotes ? 'Hide sticky notes' : 'Show sticky notes'}
+            title={showStickyNotes ? 'Hide sticky notes (Shift+Tab)' : 'Show sticky notes (Shift+Tab)'}
           >
             <Sticker size={18} />
           </button>
