@@ -7,76 +7,50 @@ default: help
 # Show available targets
 help:
     @echo ""
-    @echo ">>> Starting: help"
-    @echo "Available targets:"
-    @echo "  init    - Initialize project (install npm dependencies)"
-    @echo "  run     - Run the React dev server"
-    @echo "  build   - Build the React frontend for production"
-    @echo "  preview - Preview the production build"
-    @echo "  clean   - Remove node_modules and build artifacts"
-    @echo "  deploy  - Deploy dist to GitHub Pages"
-    @echo "  ci      - Run ci pipeline"
-    @echo "  help    - Show this help message"
-    @echo "<<< Finished: help"
+    @echo "  Available targets:"
+    @echo ""
+    @echo "    init      Initialize project (install npm dependencies)"
+    @echo "    run       Run the React dev server"
+    @echo "    build     Build the React frontend for production"
+    @echo "    preview   Preview the production build"
+    @echo "    ci        Run ci pipeline"
+    @echo "    stats     Show lines of code per file type"
+    @echo "    deploy    Deploy dist to GitHub Pages"
+    @echo "    clean     Remove node_modules and build artifacts"
+    @echo "    help      Show this help message"
     @echo ""
 
 # Initialize project dependencies
 init:
     @echo ""
-    @echo ">>> Starting: init"
     cd frontend && npm install
     mkdir -p reports
-    @echo "<<< Finished: init"
     @echo ""
 
 # Run the React dev server
 run:
     @echo ""
-    @echo ">>> Starting: run"
     @lsof -i :{{port}} -sTCP:LISTEN >/dev/null 2>&1 && echo "Error: port {{port}} is already in use" && exit 1 || true
     @(sleep 5 && open http://localhost:{{port}}/touchtask/) &
     cd frontend && npm run dev -- --port {{port}}
-    @echo "<<< Finished: run"
     @echo ""
 
 # Build the React frontend for production
 build:
     @echo ""
-    @echo ">>> Starting: build"
     cd frontend && npm run build
-    @echo "<<< Finished: build"
     @echo ""
 
 # Preview the production build
 preview:
     @echo ""
-    @echo ">>> Starting: preview"
     @lsof -i :{{port}} -sTCP:LISTEN >/dev/null 2>&1 && echo "Error: port {{port}} is already in use" && exit 1 || true
     @(sleep 3 && open http://localhost:{{port}}/touchtask/) &
     cd frontend && npm run preview -- --port {{port}}
-    @echo "<<< Finished: preview"
-    @echo ""
-
-# Remove node_modules and build artifacts
-clean:
-    @echo ""
-    @echo ">>> Starting: clean"
-    rm -rf frontend/node_modules dist
-    @echo "<<< Finished: clean"
-    @echo ""
-
-# Deploy dist to GitHub Pages
-deploy:
-    @echo ""
-    @echo ">>> Starting: deploy"
-    git subtree push --prefix dist origin gh-pages
-    @echo "<<< Finished: deploy"
     @echo ""
 
 # Run ci pipeline (static analysis + Lighthouse audit)
 ci:
-    @echo ""
-    @echo ">>> Starting: ci"
     @echo ""
     @echo "=== ESLINT (JavaScript) ==="
     cd frontend && npm run lint
@@ -114,5 +88,37 @@ ci:
     if (failed.length) { console.log(''); console.log('=== FAILED AUDITS ==='); failed.forEach(a => console.log('-', a.title)); }\
     console.log(''); console.log('Details: reports/lighthouse.report.html');\
     "
-    @echo "<<< Finished: ci"
+    @echo ""
+
+# Show lines of code per file type (code, tests, docs)
+stats:
+    @echo ""
+    @echo "=== CODE ==="
+    @printf "  %-12s %s\n" "JSX" "$(find frontend/src -name '*.jsx' ! -name '*.test.*' ! -path '*/node_modules/*' | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @printf "  %-12s %s\n" "CSS" "$(find frontend/src -name '*.css' ! -path '*/node_modules/*' | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @printf "  %-12s %s\n" "JS" "$(find frontend/src -name '*.js' ! -name '*.test.*' ! -path '*/node_modules/*' | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @printf "  %-12s %s\n" "HTML" "$(find frontend -maxdepth 1 -name '*.html' | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @printf "  %-12s %s\n" "JSON config" "$(cat frontend/package.json frontend/vite.config.js 2>/dev/null | wc -l | tr -d ' ')"
+    @echo ""
+    @echo "=== TESTS ==="
+    @printf "  %-12s %s\n" "*.test.jsx" "$(find frontend/src -name '*.test.jsx' ! -path '*/node_modules/*' 2>/dev/null | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @printf "  %-12s %s\n" "*.test.js" "$(find frontend/src -name '*.test.js' ! -path '*/node_modules/*' 2>/dev/null | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @echo ""
+    @echo "=== DOCS ==="
+    @printf "  %-12s %s\n" "Markdown" "$(find . -name '*.md' ! -path '*/node_modules/*' ! -path '*/.claude/*' | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @echo ""
+    @echo "=== TOTAL ==="
+    @printf "  %-12s %s lines\n" "Source" "$(find frontend/src \( -name '*.jsx' -o -name '*.css' -o -name '*.js' \) ! -path '*/node_modules/*' | xargs cat 2>/dev/null | wc -l | tr -d ' ')"
+    @echo ""
+
+# Deploy dist to GitHub Pages
+deploy:
+    @echo ""
+    git subtree push --prefix dist origin gh-pages
+    @echo ""
+
+# Remove node_modules and build artifacts
+clean:
+    @echo ""
+    rm -rf frontend/node_modules dist
     @echo ""
