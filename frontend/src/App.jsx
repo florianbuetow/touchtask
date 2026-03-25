@@ -1660,7 +1660,7 @@ function App() {
     setStickyNotes(demoStickyNotes)
 
     // Load demo brain dump
-    const demoBrainDump = 'Need to follow up on the API rate limiting issue\nRemember to ask Sarah about the design review\nLook into that weird CSS bug on mobile'
+    const demoBrainDump = 'Need to follow up on the API rate limiting issue — the 429s started spiking after we deployed the new batch endpoint. Check if the token bucket config got overwritten.\n\nRemember to ask Sarah about the design review for the settings page. She mentioned something about the toggle spacing feeling off on mobile. Might tie into the responsive grid bug we shelved last sprint.\n\nLook into that weird CSS bug on mobile where the sidebar overlay doesn\'t dismiss on tap outside. Could be a z-index stacking context issue or maybe the backdrop click handler isn\'t firing on touch events.\n\nIdea for the dashboard: what if we added a small sparkline next to each KPI card? Nothing fancy, just the last 7 days trend. Could use the lightweight SVG approach instead of pulling in a full charting library.\n\nNeed to block out time this week to refactor the notification service. The current fan-out logic is getting unwieldy — every new channel we add requires touching three files. Should probably extract a strategy pattern or at least a registry.\n\nParking lot from standup: Alex suggested we look into edge caching for the asset pipeline. Worth a spike if we can get a 30% reduction in TTFB. Grab the Cloudflare docs and compare with our current Fastly setup.'
     localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, demoBrainDump)
     setBrainDump(demoBrainDump)
 
@@ -1671,6 +1671,14 @@ function App() {
     const demoAverages = computeEnergyAverages(demoEnergy)
     localStorage.setItem(STORAGE_KEYS.ENERGY_AVERAGES, JSON.stringify({ date: getTodayString(), averages: demoAverages }))
     setEnergyAverages(demoAverages)
+
+    // Reset pomodoro timer
+    clearInterval(timerRef.current)
+    const defaultTimer = { isRunning: false, isBreak: false, timeRemaining: presets[1].work * 60, totalTime: presets[1].work * 60, activeTaskId: null, elapsedWhileRunning: 0 }
+    setTimerState(defaultTimer)
+    setActivePresetIndex(1)
+    setBellEnabled(true)
+    localStorage.setItem(STORAGE_KEYS.POMODORO_TIMER, JSON.stringify({ ...defaultTimer, activePresetIndex: 1, bellEnabled: true, savedAt: Date.now() }))
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -2753,6 +2761,12 @@ function App() {
             <RemindersSection
               reminders={reminders}
               addReminder={addReminder}
+              addReminders={(texts) => {
+                const newItems = texts.map(t => ({ id: generateId(), text: t.trim() }))
+                const updated = sortByUrgency([...reminders, ...newItems])
+                setReminders(updated)
+                saveReminders(updated)
+              }}
               deleteReminder={deleteReminder}
               cycleUrgency={cycleReminderUrgency}
               onClear={() => setShortlistClearConfirmOpen(true)}
@@ -3072,7 +3086,7 @@ function App() {
 
             <div className="timer-progress">
               <div
-                className={`timer-progress-bar ${timerState.isBreak ? 'break-time' : ''}`}
+                className={`timer-progress-bar ${timerState.isBreak ? 'break-time' : ''} ${timerState.timeRemaining === timerState.totalTime ? 'no-transition' : ''}`}
                 style={{ width: `${((timerState.totalTime - timerState.timeRemaining) / timerState.totalTime) * 100}%` }}
               />
             </div>
@@ -5273,17 +5287,10 @@ function MeetingsSection({ meetings, onAdd, onEdit, onClear }) {
 // REMINDERS SECTION COMPONENT
 // ============================================
 
-function RemindersSection({ reminders, addReminder, deleteReminder, reorderReminders, cycleUrgency, onClear }) {
-  const [inputValue, setInputValue] = useState('')
+function RemindersSection({ reminders, addReminders, deleteReminder, reorderReminders, cycleUrgency, onClear }) {
   const [dragIndex, setDragIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && inputValue.trim()) {
-      addReminder(inputValue)
-      setInputValue('')
-    }
-  }
+  const [addModalOpen, setAddModalOpen] = useState(false)
 
   const handleDragStart = (e, index) => {
     setDragIndex(index)
@@ -5323,64 +5330,90 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
           disabled={reminders.length === 0}
         ><Trash2 size={14} /></button>
       </div>
-      {reminders.length > 0 && (
-        <div className="reminders-pills">
-          {reminders.map((reminder, index) => (
-            <span
-              key={reminder.id}
-              className={`reminder-pill${reminder.urgency ? ` urgency-${reminder.urgency}` : ''}${dragIndex === index ? ' dragging' : ''}${dragOverIndex === index && dragIndex !== index ? ' drag-over' : ''}`}
-              draggable
-              onClick={() => cycleUrgency(reminder.id)}
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDrop={(e) => handleDrop(e, index)}
-              onDragEnd={handleDragEnd}
+      <div className="reminders-pills">
+        {reminders.map((reminder, index) => (
+          <span
+            key={reminder.id}
+            className={`reminder-pill${reminder.urgency ? ` urgency-${reminder.urgency}` : ''}${dragIndex === index ? ' dragging' : ''}${dragOverIndex === index && dragIndex !== index ? ' drag-over' : ''}`}
+            draggable
+            onClick={() => cycleUrgency(reminder.id)}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={handleDragEnd}
+          >
+            {reminder.text}
+            <button
+              className="reminder-delete"
+              onClick={(e) => { e.stopPropagation(); deleteReminder(reminder.id) }}
             >
-              {reminder.text}
-              <button
-                className="reminder-delete"
-                onClick={(e) => { e.stopPropagation(); deleteReminder(reminder.id) }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+              ×
+            </button>
+          </span>
+        ))}
+        <span className="reminder-add" onClick={() => setAddModalOpen(true)}>+ Add</span>
+      </div>
+      <AddRemindersModal
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSave={(texts) => addReminders(texts)}
+      />
+    </div>
+  )
+}
+
+// ============================================
+// ADD REMINDERS MODAL COMPONENT
+// ============================================
+
+function AddRemindersModal({ isOpen, onClose, onSave }) {
+  const [text, setText] = useState('')
+
+  useEffect(() => {
+    if (isOpen) setText('')
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [isOpen, onClose])
+
+  const handleSave = () => {
+    const items = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+    if (items.length === 0) return
+    onSave(items)
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Add Items</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
-      )}
-      <div className="reminders-input-row">
-        <input
-          type="text"
-          className="reminders-input"
-          placeholder="Something you must not forget"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onDragOver={(e) => {
-            if (e.dataTransfer.types.includes('application/x-reminder')) {
-              e.preventDefault()
-              e.dataTransfer.dropEffect = 'move'
-            }
-          }}
-          onDrop={(e) => {
-            const data = e.dataTransfer.getData('application/x-reminder')
-            if (data) {
-              e.preventDefault()
-              const reminder = JSON.parse(data)
-              setInputValue(reminder.text)
-              deleteReminder(reminder.id)
-            }
-          }}
-        />
-        <button
-          className="reminders-add-btn"
-          onClick={() => {
-            if (inputValue.trim()) {
-              addReminder(inputValue.trim())
-              setInputValue('')
-            }
-          }}
-          disabled={!inputValue.trim()}
-        >Add</button>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">One item per line</label>
+            <textarea
+              className="form-input form-textarea"
+              placeholder={"groceries\ncall dentist\nreply to email"}
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && e.metaKey) handleSave() }}
+              rows={5}
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={!text.trim()}>Add</button>
+        </div>
       </div>
     </div>
   )

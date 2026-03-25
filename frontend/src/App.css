@@ -1272,7 +1272,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-bottom: 0.75rem;
     min-height: 32px;
     align-items: flex-start;
 }
@@ -1290,7 +1289,7 @@
     padding: 0.35rem 0.5rem 0.35rem 0.6rem;
     background: var(--cloud);
     border: 1px solid var(--rule);
-    border-radius: 1rem;
+    border-radius: 8px;
     font-size: 0.75rem;
     color: var(--ink);
     line-height: 1;
@@ -1342,57 +1341,27 @@
     color: var(--danger);
 }
 
-.reminders-input-row {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.reminders-input {
-    flex: 1;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--rule);
-    border-radius: 0.5rem;
-    font-size: 0.8rem;
-    font-family: inherit;
-    background: var(--cloud);
-    color: var(--ink);
-}
-
-.reminders-add-btn {
-    padding: 0.6rem 1rem;
-    border: 2px solid var(--ink);
+.reminder-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem 0.6rem;
+    border: 2px dashed var(--rule);
     border-radius: 8px;
-    background: var(--ink);
+    background: transparent;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    font-weight: 500;
+    font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--paper);
+    color: var(--muted);
     cursor: pointer;
     transition: all 0.15s ease;
-    white-space: nowrap;
-    flex-shrink: 0;
+    line-height: 1;
 }
 
-.reminders-add-btn:hover:not(:disabled) {
-    background: var(--accent);
+.reminder-add:hover {
     border-color: var(--accent);
-}
-
-.reminders-add-btn:disabled {
-    opacity: 0.3;
-    cursor: default;
-}
-
-.reminders-input:focus {
-    outline: none;
-    border-color: var(--ink);
-    background: var(--paper);
-}
-
-.reminders-input::placeholder {
-    color: var(--muted);
+    color: var(--accent);
 }
 
 /* Focus Checklist */
@@ -1832,6 +1801,7 @@
     transition: width 1s linear;
 }
 
+.timer-progress-bar.no-transition { transition: none; }
 .timer-progress-bar.break-time { background: var(--success); }
 
 .timer-controls {
