@@ -1540,6 +1540,56 @@
     border-width: 1px;
 }
 
+.brain-dump-section {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1.25rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+}
+
+.brain-dump-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+}
+
+.brain-dump-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.brain-dump-section textarea {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-height: 120px;
+    margin: 0;
+    box-sizing: border-box;
+    background: var(--paper-dark);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.6;
+    color: var(--ink);
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.15s ease;
+}
+
+.brain-dump-section textarea::placeholder {
+    color: var(--muted);
+}
+
+.brain-dump-section textarea:focus {
+    border-color: var(--accent);
+}
+
 .kanban-card {
     background: var(--paper);
     border-radius: var(--card-radius);

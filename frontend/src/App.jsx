@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, ShieldCheck, Menu, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { ArrowLeftRight, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, ShieldCheck, Menu, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -74,6 +74,8 @@ const STORAGE_KEYS = {
   FOCUS_CHECKLIST: 'touchtask_focus_checklist',
   FOCUS_ORDER: 'touchtask_focus_order',
   CURRENT_FOCUS: 'touchtask_current_focus',
+  BRAIN_DUMP: 'touchtask_brain_dump',
+  CONTEXT_SWITCHES: 'touchtask_context_switches',
 }
 
 const getDefaultSettings = () => ({
@@ -657,6 +659,13 @@ function App() {
       return DEFAULT_FOCUS_ORDER
     } catch { return DEFAULT_FOCUS_ORDER }
   })
+  const [showBrainDump, setShowBrainDump] = useState(true)
+  const [brainDump, setBrainDump] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.BRAIN_DUMP) || ''
+    } catch { return '' }
+  })
+  const brainDumpTimerRef = useRef(null)
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
@@ -1166,6 +1175,7 @@ function App() {
       projectBoard: projectBoard.projects,
       whiteboards: whiteboardsData,
       stickyNotes: stickyNotes,
+      brainDump: brainDump,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -1268,6 +1278,11 @@ function App() {
     saveStickyNotes(loadedStickyNotes)
     setStickyNotes(loadedStickyNotes)
 
+    // Load brain dump
+    const loadedBrainDump = pendingLoadData.brainDump || ''
+    localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, loadedBrainDump)
+    setBrainDump(loadedBrainDump)
+
     // Reset settings to defaults
     const defaultSettings = getDefaultSettings()
     saveSettings(defaultSettings)
@@ -1329,6 +1344,10 @@ function App() {
     // Clear sticky notes
     saveStickyNotes([])
     setStickyNotes([])
+
+    // Clear brain dump
+    localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, '')
+    setBrainDump('')
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -1463,6 +1482,11 @@ function App() {
     ]
     saveStickyNotes(demoStickyNotes)
     setStickyNotes(demoStickyNotes)
+
+    // Load demo brain dump
+    const demoBrainDump = 'Need to follow up on the API rate limiting issue\nRemember to ask Sarah about the design review\nLook into that weird CSS bug on mobile'
+    localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, demoBrainDump)
+    setBrainDump(demoBrainDump)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -2510,6 +2534,13 @@ function App() {
                 >
                   <Timer size={14} />
                 </button>
+                <button
+                  className={`focus-toggle ${!showBrainDump ? 'disabled' : ''}`}
+                  onClick={() => setShowBrainDump(!showBrainDump)}
+                  title={showBrainDump ? 'Hide brain dump' : 'Show brain dump'}
+                >
+                  <NotebookPen size={14} />
+                </button>
               </div>
             </div>
           </header>
@@ -2663,6 +2694,30 @@ function App() {
                 style={{ width: `${((timerState.totalTime - timerState.timeRemaining) / timerState.totalTime) * 100}%` }}
               />
             </div>
+          </div>
+
+          {/* Brain Dump */}
+          <div className={`brain-dump-section ${!showBrainDump ? 'hidden' : ''}`}>
+            <div className="brain-dump-header">
+              <span className="brain-dump-label">Brain dump</span>
+            </div>
+            <textarea
+              cols="1"
+              placeholder="Offload your thoughts here..."
+              value={brainDump}
+              onChange={(e) => {
+                const val = e.target.value
+                setBrainDump(val)
+                clearTimeout(brainDumpTimerRef.current)
+                brainDumpTimerRef.current = setTimeout(() => {
+                  localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, val)
+                }, 1000)
+              }}
+              onBlur={() => {
+                clearTimeout(brainDumpTimerRef.current)
+                localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, brainDump)
+              }}
+            />
           </div>
         </section>
       </main>
