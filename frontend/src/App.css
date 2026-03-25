@@ -139,11 +139,9 @@
 
 .main-layout {
     display: grid;
-    grid-template-columns: 1fr 520px;
+    grid-template-columns: 1fr minmax(0, 520px) minmax(0, 520px);
     gap: 2rem;
     padding: 2rem;
-    max-width: 1800px;
-    margin: 0 auto;
     min-height: calc(100vh - 52px);
 }
 
@@ -951,6 +949,11 @@
 }
 
 /* Kanban & Pomodoro styles */
+.cognitive-load-section {
+    display: flex;
+    flex-direction: column;
+}
+
 .kanban-section {
     display: flex;
     flex-direction: column;
@@ -1084,6 +1087,96 @@
 
 .reminders-input::placeholder {
     color: var(--muted);
+}
+
+/* Focus Checklist */
+.focus-checklist-section {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1.25rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+}
+
+.focus-checklist-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+}
+
+.focus-checklist-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.focus-checklist-items {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.focus-checklist-btn {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+
+.focus-checklist-btn.on {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-color: #a5d6a7;
+}
+
+.focus-checklist-btn.on:hover {
+    background: #c8e6c9;
+}
+
+.focus-checklist-btn.off {
+    background: var(--paper);
+    color: var(--muted);
+    border-color: var(--rule);
+}
+
+.focus-checklist-btn.off:hover {
+    background: var(--rule);
+}
+
+.focus-tooltip {
+    position: fixed;
+    z-index: 9999;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.focus-tooltip.visible {
+    opacity: 1;
+}
+
+.focus-tooltip.off {
+    background: #fdeaea;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.focus-tooltip.on {
+    background: var(--success-light);
+    color: var(--success);
+    border: 1px solid var(--success);
 }
 
 .pomodoro-section {
@@ -2253,7 +2346,8 @@
 
 @media (width <= 1200px) {
     .main-layout { grid-template-columns: 1fr; }
-    .kanban-section { order: -1; max-height: 500px; }
+    .cognitive-load-section { order: -1; }
+    .kanban-section { order: -2; max-height: 500px; }
     .drawer-trigger-group { right: 1rem; }
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, Brain, Copy, Eye, EyeOff, Menu, Pen, Pencil, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
+import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, DoorClosed, DoorOpen, Eye, EyeOff, Headphones, HeadphoneOff, LampDesk, Menu, Monitor, MonitorOff, Pen, Pencil, Phone, PhoneOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -71,6 +71,7 @@ const STORAGE_KEYS = {
   PROJECT_BOARD: 'touchtask_project_board',
   WHITEBOARDS: 'touchtask_whiteboards',
   STICKY_NOTES: 'touchtask_sticky_notes',
+  FOCUS_CHECKLIST: 'touchtask_focus_checklist',
 }
 
 const getDefaultSettings = () => ({
@@ -501,6 +502,10 @@ const saveStickyNotes = (data) => {
   localStorage.setItem(STORAGE_KEYS.STICKY_NOTES, JSON.stringify(data))
 }
 
+const saveFocusChecklist = (data) => {
+  localStorage.setItem(STORAGE_KEYS.FOCUS_CHECKLIST, JSON.stringify(data))
+}
+
 const clampNotesToViewport = (notes, newW, newH) => {
   let changed = false
   const clamped = notes.map(n => {
@@ -612,6 +617,13 @@ function App() {
   const [showPomodoro, setShowPomodoro] = useState(true)
   const [showKanban, setShowKanban] = useState(true)
   const [showMentalBandwidth, setShowMentalBandwidth] = useState(true)
+  const [showFocusChecklist, setShowFocusChecklist] = useState(true)
+  const [focusChecklist, setFocusChecklist] = useState(() => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.FOCUS_CHECKLIST)
+      return data ? JSON.parse(data) : { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false }
+    } catch { return { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false } }
+  })
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
@@ -1837,6 +1849,38 @@ function App() {
     }, 1000)
   }, [activePresetIndex, presets, playNotification])
 
+  const [focusTooltip, setFocusTooltip] = useState({ text: '', type: '', visible: false, x: 0, y: 0 })
+  const focusTooltipTimer = useRef(null)
+
+  const showFocusTooltip = (e) => {
+    const btn = e.currentTarget
+    const rect = btn.getBoundingClientRect()
+    const text = btn.getAttribute('data-tooltip')
+    const type = btn.classList.contains('on') ? 'on' : 'off'
+    const x = rect.left + rect.width / 2
+    const y = rect.top - 8
+    setFocusTooltip({ text, type, visible: false, x, y })
+    focusTooltipTimer.current = setTimeout(() => {
+      const el = document.querySelector('.focus-tooltip')
+      const tipWidth = el ? el.offsetWidth : 0
+      const clampedX = Math.min(x, window.innerWidth - tipWidth / 2 - 10)
+      setFocusTooltip({ text, type, visible: true, x: clampedX, y })
+    }, 200)
+  }
+
+  const hideFocusTooltip = () => {
+    clearTimeout(focusTooltipTimer.current)
+    setFocusTooltip(prev => ({ ...prev, visible: false }))
+  }
+
+  const toggleFocusItem = (key) => {
+    setFocusChecklist(prev => {
+      const updated = { ...prev, [key]: !prev[key] }
+      saveFocusChecklist(updated)
+      return updated
+    })
+  }
+
   const toggleTimer = useCallback(() => {
     if (timerState.isBreak) {
       // Skip break
@@ -2295,33 +2339,19 @@ function App() {
           </div>
         </section>
 
-        {/* Right Column - Kanban */}
+        {/* Middle Column - Kanban */}
         <aside className="kanban-section">
           <header className="section-header">
-            <h2 className="section-title">Project <span>Tracking</span></h2>
+            <h2 className="section-title">Task <span>Tracking</span></h2>
             <div className="section-meta">
-              <span className="section-subtitle">Kanban board</span>
+              <span className="habits-stats">{(kanbanTasks?.tasks.filter(t => t.column === 'done').length || 0)} of {(kanbanTasks?.tasks.filter(t => t.column !== 'backlog').length || 0) + reminders.length} complete</span>
               <div className="section-meta-buttons">
-                <button
-                  className={`focus-toggle ${!showMentalBandwidth ? 'disabled' : ''}`}
-                  onClick={() => setShowMentalBandwidth(!showMentalBandwidth)}
-                  title={showMentalBandwidth ? 'Hide mental bandwidth' : 'Show mental bandwidth'}
-                >
-                  <Brain size={14} />
-                </button>
                 <button
                   className={`focus-toggle ${!showReminders ? 'disabled' : ''}`}
                   onClick={() => setShowReminders(!showReminders)}
-                  title={showReminders ? 'Hide shortlist' : 'Show shortlist'}
+                  title={showReminders ? "Hide don't forget" : "Show don't forget"}
                 >
                   <StickyNote size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showPomodoro ? 'disabled' : ''}`}
-                  onClick={() => setShowPomodoro(!showPomodoro)}
-                  title={showPomodoro ? 'Hide pomodoro timer' : 'Show pomodoro timer'}
-                >
-                  <Timer size={14} />
                 </button>
                 <button
                   className={`focus-toggle ${!showKanban ? 'disabled' : ''}`}
@@ -2334,14 +2364,7 @@ function App() {
             </div>
           </header>
 
-          {/* Mental Bandwidth */}
-          <div className={!showMentalBandwidth ? 'hidden' : ''}>
-            <div className="mental-bandwidth-placeholder">
-              Coming soon.
-            </div>
-          </div>
-
-          {/* Shortlist Section */}
+          {/* Don't Forget Section */}
           <div className={!showReminders ? 'hidden' : ''}>
             <RemindersSection
               reminders={reminders}
@@ -2357,6 +2380,149 @@ function App() {
                 saveReminders(sorted)
               }}
             />
+          </div>
+
+          {/* Kanban Board */}
+          <div className={`kanban-card ${!showKanban ? 'hidden' : ''}`}>
+            <div className="kanban-board">
+              {['backlog', 'week', 'progress', 'done'].map(column => (
+                <KanbanColumn
+                  key={column}
+                  column={column}
+                  tasks={getTasksByColumn(column)}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDropOnColumn}
+                  onAddClick={() => {
+                    setEditingTask(null)
+                    setTaskModalColumn(column)
+                    setTaskModalOpen(true)
+                  }}
+                  onEditTask={openEditTask}
+                  onClearClick={column === 'done' ? () => setClearConfirmOpen(true) : null}
+                />
+              ))}
+            </div>
+          </div>
+
+        </aside>
+
+        {/* Right Column - Cognitive Load */}
+        <section className="cognitive-load-section">
+          <header className="section-header">
+            <h2 className="section-title">Cognitive <span>Load</span></h2>
+            <div className="section-meta">
+              <span className="section-subtitle">Mental bandwidth</span>
+              <div className="section-meta-buttons">
+                <button
+                  className={`focus-toggle ${!showFocusChecklist ? 'disabled' : ''}`}
+                  onClick={() => setShowFocusChecklist(!showFocusChecklist)}
+                  title={showFocusChecklist ? 'Hide protect your focus' : 'Show protect your focus'}
+                >
+                  <LampDesk size={14} />
+                </button>
+                <button
+                  className={`focus-toggle ${!showMentalBandwidth ? 'disabled' : ''}`}
+                  onClick={() => setShowMentalBandwidth(!showMentalBandwidth)}
+                  title={showMentalBandwidth ? 'Hide mental bandwidth' : 'Show mental bandwidth'}
+                >
+                  <Brain size={14} />
+                </button>
+                <button
+                  className={`focus-toggle ${!showPomodoro ? 'disabled' : ''}`}
+                  onClick={() => setShowPomodoro(!showPomodoro)}
+                  title={showPomodoro ? 'Hide pomodoro timer' : 'Show pomodoro timer'}
+                >
+                  <Timer size={14} />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Focus Checklist */}
+          <div className={`focus-checklist-section ${!showFocusChecklist ? 'hidden' : ''}`}>
+            <div className="focus-checklist-header">
+              <span className="focus-checklist-label">Protect your focus</span>
+            </div>
+            <div className="focus-checklist-items">
+              <button
+                className={`focus-checklist-btn ${focusChecklist.notificationsOff ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('notificationsOff')}
+                data-tooltip={focusChecklist.notificationsOff ? 'Your notifications are turned off' : 'Turn off your notifications'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.notificationsOff ? <BellOff size={28} /> : <BellRing size={28} />}
+              </button>
+              <button
+                className={`focus-checklist-btn ${focusChecklist.messagesOff ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('messagesOff')}
+                data-tooltip={focusChecklist.messagesOff ? 'Your messages are turned off' : 'Turn off your messages'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.messagesOff ? <CaptionsOff size={28} /> : <Captions size={28} />}
+              </button>
+              <button
+                className={`focus-checklist-btn ${focusChecklist.phoneSilenced ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('phoneSilenced')}
+                data-tooltip={focusChecklist.phoneSilenced ? 'Your phone is silenced' : 'Silence your phone'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.phoneSilenced ? <PhoneOff size={28} /> : <Phone size={28} />}
+              </button>
+              <button
+                className={`focus-checklist-btn ${focusChecklist.alertsMuted ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('alertsMuted')}
+                data-tooltip={focusChecklist.alertsMuted ? 'Your alerts are muted' : 'Mute your alerts'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.alertsMuted ? <VolumeOff size={28} /> : <Volume2 size={28} />}
+              </button>
+              <button
+                className={`focus-checklist-btn ${focusChecklist.wifiOff ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('wifiOff')}
+                data-tooltip={focusChecklist.wifiOff ? 'Your internet is turned off' : 'Turn your internet off'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.wifiOff ? <WifiOff size={28} /> : <Wifi size={28} />}
+              </button>
+              <button
+                className={`focus-checklist-btn ${focusChecklist.monitorOff ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('monitorOff')}
+                data-tooltip={focusChecklist.monitorOff ? 'Unneeded monitors are turned off' : 'Turn off monitors you don\'t need'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.monitorOff ? <MonitorOff size={28} /> : <Monitor size={28} />}
+              </button>
+              <button
+                className={`focus-checklist-btn ${focusChecklist.musicOn ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('musicOn')}
+                data-tooltip={focusChecklist.musicOn ? 'Your music is turned off' : 'Turn off your music'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.musicOn ? <HeadphoneOff size={28} /> : <Headphones size={28} />}
+              </button>
+              <button
+                className={`focus-checklist-btn ${focusChecklist.doorClosed ? 'on' : 'off'}`}
+                onClick={() => toggleFocusItem('doorClosed')}
+                data-tooltip={focusChecklist.doorClosed ? 'Your door is closed' : 'Close your door'}
+                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+              >
+                {focusChecklist.doorClosed ? <DoorClosed size={28} /> : <DoorOpen size={28} />}
+              </button>
+            </div>
+            <div
+              className={`focus-tooltip ${focusTooltip.visible ? 'visible' : ''} ${focusTooltip.type}`}
+              style={{ top: focusTooltip.y, left: focusTooltip.x, transform: 'translate(-50%, -100%)' }}
+            >
+              {focusTooltip.text}
+            </div>
+          </div>
+
+          {/* Mental Bandwidth */}
+          <div className={!showMentalBandwidth ? 'hidden' : ''}>
+            <div className="mental-bandwidth-placeholder">
+              Coming soon.
+            </div>
           </div>
 
           {/* Pomodoro Section */}
@@ -2436,31 +2602,7 @@ function App() {
               />
             </div>
           </div>
-
-          {/* Kanban Board */}
-          <div className={`kanban-card ${!showKanban ? 'hidden' : ''}`}>
-            <div className="kanban-board">
-              {['backlog', 'week', 'progress', 'done'].map(column => (
-                <KanbanColumn
-                  key={column}
-                  column={column}
-                  tasks={getTasksByColumn(column)}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDropOnColumn}
-                  onAddClick={() => {
-                    setEditingTask(null)
-                    setTaskModalColumn(column)
-                    setTaskModalOpen(true)
-                  }}
-                  onEditTask={openEditTask}
-                  onClearClick={column === 'done' ? () => setClearConfirmOpen(true) : null}
-                />
-              ))}
-            </div>
-          </div>
-
-        </aside>
+        </section>
       </main>
 
       {/* Drawer Trigger Buttons */}
@@ -4537,7 +4679,7 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
   return (
     <div className="reminders-section">
       <div className="reminders-header">
-        <span className="reminders-label">Shortlist</span>
+        <span className="reminders-label">Don't forget</span>
       </div>
       <div className="reminders-pills">
         {reminders.length === 0 ? (
