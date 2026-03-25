@@ -778,6 +778,8 @@ function App() {
     } catch { return defaults }
   })
   const [contextSwitchClearConfirmOpen, setContextSwitchClearConfirmOpen] = useState(false)
+  const [scheduleClearConfirmOpen, setScheduleClearConfirmOpen] = useState(false)
+  const [shortlistClearConfirmOpen, setShortlistClearConfirmOpen] = useState(false)
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
@@ -2618,6 +2620,7 @@ function App() {
               meetings={meetings}
               onAdd={openAddMeeting}
               onEdit={openEditMeeting}
+              onClear={() => setScheduleClearConfirmOpen(true)}
             />
           </div>
 
@@ -2688,6 +2691,7 @@ function App() {
               addReminder={addReminder}
               deleteReminder={deleteReminder}
               cycleUrgency={cycleReminderUrgency}
+              onClear={() => setShortlistClearConfirmOpen(true)}
               reorderReminders={(fromIndex, toIndex) => {
                 const updated = [...reminders]
                 const [moved] = updated.splice(fromIndex, 1)
@@ -2774,6 +2778,12 @@ function App() {
           <div className={`current-focus-section ${!showCurrentFocus ? 'hidden' : ''}`}>
             <div className="current-focus-header">
               <span className="current-focus-label">Current focus</span>
+              <button
+                className="context-switch-clear"
+                onClick={() => setContextSwitchClearConfirmOpen(true)}
+                title="Reset counters"
+                disabled={!(contextSwitchData.date === getTodayString() && (contextSwitchData.interrupted > 0 || contextSwitchData.switched > 0))}
+              ><Trash2 size={14} /></button>
             </div>
             <div className="current-focus-content">
               <input
@@ -2822,11 +2832,6 @@ function App() {
               <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 8 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 4 ? 'warning' : 'normal'}`} title="Times interrupted today — 0–3 normal, 4–7 losing 1.5–2.5h to refocusing, 8+ more time recovering than doing deep work">{contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0}x</span>
               <button className="context-switch-btn" onClick={incrementSwitched}>I switched context</button>
               <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 10 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 5 ? 'warning' : 'normal'}`} title="Times you switched context today — 0–4 normal, 5–9 fragmented attention, 10+ task-hopping">{contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0}x</span>
-              <button
-                className="context-switch-clear"
-                onClick={() => setContextSwitchClearConfirmOpen(true)}
-                title="Reset counters"
-              ><Trash2 size={14} /></button>
             </div>
           </div>
 
@@ -2842,6 +2847,7 @@ function App() {
                   saveFocusChecklist(defaults)
                 }}
                 title="Reset all protections to default"
+                disabled={!Object.values(focusChecklist).some(Boolean)}
               ><Trash2 size={14} /></button>
             </div>
             <div className="focus-checklist-items">
@@ -3402,6 +3408,31 @@ function App() {
         }}
         title="Reset Counters"
         message="Are you sure you want to reset the context switch counters? This action cannot be undone."
+      />
+
+      <ConfirmDialog
+        isOpen={scheduleClearConfirmOpen}
+        onClose={() => setScheduleClearConfirmOpen(false)}
+        onConfirm={() => {
+          const empty = { date: getTodayString(), items: [] }
+          setMeetings(empty)
+          saveMeetings(empty)
+          setScheduleClearConfirmOpen(false)
+        }}
+        title="Clear Schedule"
+        message="Are you sure you want to clear the schedule? This action cannot be undone."
+      />
+
+      <ConfirmDialog
+        isOpen={shortlistClearConfirmOpen}
+        onClose={() => setShortlistClearConfirmOpen(false)}
+        onConfirm={() => {
+          setReminders([])
+          saveReminders([])
+          setShortlistClearConfirmOpen(false)
+        }}
+        title="Clear Shortlist"
+        message="Are you sure you want to remove all shortlist items? This action cannot be undone."
       />
 
       {/* Settings Modal */}
@@ -5113,11 +5144,17 @@ function WhiteboardTile({
 // MEETINGS SECTION COMPONENT
 // ============================================
 
-function MeetingsSection({ meetings, onAdd, onEdit }) {
+function MeetingsSection({ meetings, onAdd, onEdit, onClear }) {
   return (
     <div className="meetings-section">
       <div className="meetings-header">
         <span className="meetings-label">Schedule</span>
+        <button
+          className="meetings-clear"
+          onClick={onClear}
+          title="Clear schedule"
+          disabled={meetings.items.length === 0}
+        ><Trash2 size={14} /></button>
       </div>
       <div className="meetings-list">
         {meetings.items.map(meeting => (
@@ -5146,7 +5183,7 @@ function MeetingsSection({ meetings, onAdd, onEdit }) {
 // REMINDERS SECTION COMPONENT
 // ============================================
 
-function RemindersSection({ reminders, addReminder, deleteReminder, reorderReminders, cycleUrgency }) {
+function RemindersSection({ reminders, addReminder, deleteReminder, reorderReminders, cycleUrgency, onClear }) {
   const [inputValue, setInputValue] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
@@ -5189,6 +5226,12 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
     <div className="reminders-section">
       <div className="reminders-header">
         <span className="reminders-label">Don't forget</span>
+        <button
+          className="reminders-clear"
+          onClick={onClear}
+          title="Clear all items"
+          disabled={reminders.length === 0}
+        ><Trash2 size={14} /></button>
       </div>
       <div className="reminders-pills">
         {reminders.length === 0 ? (

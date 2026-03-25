@@ -203,6 +203,9 @@
 }
 
 .meetings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--rule);
@@ -214,6 +217,28 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted);
+}
+
+.meetings-clear {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.meetings-clear:hover:not(:disabled) {
+    color: var(--accent);
+}
+
+.meetings-clear:disabled {
+    display: none;
 }
 
 
@@ -1199,12 +1224,15 @@
 .reminders-section {
     background: var(--paper);
     border-radius: var(--card-radius);
-    padding: 1.25rem;
+    padding: 1rem;
     box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
     margin-bottom: 1rem;
 }
 
 .reminders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--rule);
@@ -1216,6 +1244,28 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted);
+}
+
+.reminders-clear {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.reminders-clear:hover:not(:disabled) {
+    color: var(--accent);
+}
+
+.reminders-clear:disabled {
+    display: none;
 }
 
 .reminders-pills {
@@ -1340,22 +1390,26 @@
 }
 
 .focus-checklist-reset {
-    width: 28px;
-    height: 28px;
+    width: 14px;
+    height: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: none;
-    border: 1px solid var(--rule);
-    border-radius: 6px;
+    border: none;
     cursor: pointer;
     color: var(--muted);
     transition: all 0.15s ease;
+    padding: 0;
 }
 
-.focus-checklist-reset:hover {
+.focus-checklist-reset:hover:not(:disabled) {
     border-color: var(--accent);
     color: var(--accent);
+}
+
+.focus-checklist-reset:disabled {
+    display: none;
 }
 
 .focus-checklist-items {
@@ -1504,20 +1558,24 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 14px;
+    height: 14px;
     background: none;
-    border: 1px solid var(--rule);
-    border-radius: 6px;
+    border: none;
     cursor: pointer;
     color: var(--muted);
     transition: all 0.15s ease;
     margin-left: auto;
+    padding: 0;
 }
 
-.context-switch-clear:hover {
+.context-switch-clear:hover:not(:disabled) {
     border-color: var(--accent);
     color: var(--accent);
+}
+
+.context-switch-clear:disabled {
+    display: none;
 }
 
 .pomodoro-section {
