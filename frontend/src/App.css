@@ -957,6 +957,18 @@
 }
 
 /* Reminders Section */
+.mental-bandwidth-placeholder {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1.25rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
 .reminders-section {
     background: var(--paper);
     border-radius: var(--card-radius);
@@ -2449,7 +2461,6 @@
     width: 100%;
     flex: 1;
     border: none;
-    -webkit-appearance: none;
     appearance: none;
     background: #FFF2B1;
     font-family: inherit;

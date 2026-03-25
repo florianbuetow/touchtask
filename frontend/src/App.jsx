@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, Copy, Eye, EyeOff, Menu, Pen, Pencil, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
+import { BarChart3, Bell, BellOff, Brain, Copy, Eye, EyeOff, Menu, Pen, Pencil, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2 } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -611,6 +611,7 @@ function App() {
   const [showReminders, setShowReminders] = useState(true)
   const [showPomodoro, setShowPomodoro] = useState(true)
   const [showKanban, setShowKanban] = useState(true)
+  const [showMentalBandwidth, setShowMentalBandwidth] = useState(true)
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
@@ -2302,6 +2303,13 @@ function App() {
               <span className="section-subtitle">Kanban board</span>
               <div className="section-meta-buttons">
                 <button
+                  className={`focus-toggle ${!showMentalBandwidth ? 'disabled' : ''}`}
+                  onClick={() => setShowMentalBandwidth(!showMentalBandwidth)}
+                  title={showMentalBandwidth ? 'Hide mental bandwidth' : 'Show mental bandwidth'}
+                >
+                  <Brain size={14} />
+                </button>
+                <button
                   className={`focus-toggle ${!showReminders ? 'disabled' : ''}`}
                   onClick={() => setShowReminders(!showReminders)}
                   title={showReminders ? 'Hide shortlist' : 'Show shortlist'}
@@ -2325,6 +2333,13 @@ function App() {
               </div>
             </div>
           </header>
+
+          {/* Mental Bandwidth */}
+          <div className={!showMentalBandwidth ? 'hidden' : ''}>
+            <div className="mental-bandwidth-placeholder">
+              Coming soon.
+            </div>
+          </div>
 
           {/* Shortlist Section */}
           <div className={!showReminders ? 'hidden' : ''}>
@@ -2444,6 +2459,7 @@ function App() {
               ))}
             </div>
           </div>
+
         </aside>
       </main>
 
