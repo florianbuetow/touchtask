@@ -1342,8 +1342,13 @@
     color: var(--danger);
 }
 
+.reminders-input-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .reminders-input {
-    width: 100%;
+    flex: 1;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--rule);
     border-radius: 0.5rem;
@@ -1353,9 +1358,36 @@
     color: var(--ink);
 }
 
+.reminders-add-btn {
+    padding: 0.6rem 1rem;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    background: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--paper);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.reminders-add-btn:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.reminders-add-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
 .reminders-input:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--ink);
     background: var(--paper);
 }
 
@@ -1708,9 +1740,15 @@
 }
 
 .drop-zone.has-task {
-    border-style: solid;
-    border-color: var(--accent);
-    background: var(--paper);
+    border: 1px solid var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.drop-zone.has-task.running {
+    border-color: var(--success);
+    background: var(--success-light);
+    color: var(--success);
 }
 
 .drop-zone.break-mode {
@@ -1757,22 +1795,23 @@
 }
 
 .active-task-name {
-    font-family: 'Playfair Display', serif;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 1rem;
     font-weight: 700;
     margin-bottom: 0.25rem;
+    color: inherit;
 }
 
 .active-task-meta {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.6rem;
-    color: var(--muted);
+    color: inherit;
 }
 
 .active-task-time-logged {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
-    color: var(--muted);
+    color: inherit;
     margin-top: 0.35rem;
 }
 
@@ -1786,8 +1825,9 @@
 
 .timer-progress-bar {
     height: 100%;
-    background: var(--accent);
+    background: var(--ink);
     border-radius: 3px;
+    min-width: 1px;
     width: 0%;
     transition: width 1s linear;
 }
@@ -1880,7 +1920,7 @@
 
 .brain-dump-quick-input:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--ink);
     background: var(--paper);
 }
 
@@ -1934,7 +1974,8 @@
 }
 
 .brain-dump-section textarea:focus {
-    border-color: var(--accent);
+    outline: none;
+    border-color: var(--ink);
 }
 
 .brain-dump-actions {

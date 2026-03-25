@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, ShieldCheck, Menu, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Menu, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -2671,7 +2671,7 @@ function App() {
                   onClick={() => setShowReminders(!showReminders)}
                   title={showReminders ? "Hide don't forget" : "Show don't forget"}
                 >
-                  <StickyNote size={14} />
+                  <List size={14} />
                 </button>
                 <button
                   className={`focus-toggle ${!showKanban ? 'disabled' : ''}`}
@@ -2971,7 +2971,7 @@ function App() {
 
             <div className="pomodoro-content">
               <div
-                className={`drop-zone ${activeTask ? 'has-task' : ''} ${timerState.isBreak ? 'break-mode' : ''}`}
+                className={`drop-zone ${activeTask ? (timerState.isRunning ? 'has-task running' : 'has-task') : ''} ${timerState.isBreak ? 'break-mode' : ''}`}
                 onDragOver={handleDragOver}
                 onDrop={handleDropOnTimer}
               >
@@ -5233,11 +5233,9 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
           disabled={reminders.length === 0}
         ><Trash2 size={14} /></button>
       </div>
-      <div className="reminders-pills">
-        {reminders.length === 0 ? (
-          <span className="reminders-empty">No items yet</span>
-        ) : (
-          reminders.map((reminder, index) => (
+      {reminders.length > 0 && (
+        <div className="reminders-pills">
+          {reminders.map((reminder, index) => (
             <span
               key={reminder.id}
               className={`reminder-pill${reminder.urgency ? ` urgency-${reminder.urgency}` : ''}${dragIndex === index ? ' dragging' : ''}${dragOverIndex === index && dragIndex !== index ? ' drag-over' : ''}`}
@@ -5251,37 +5249,49 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
               {reminder.text}
               <button
                 className="reminder-delete"
-                onClick={() => deleteReminder(reminder.id)}
+                onClick={(e) => { e.stopPropagation(); deleteReminder(reminder.id) }}
               >
                 ×
               </button>
             </span>
-          ))
-        )}
+          ))}
+        </div>
+      )}
+      <div className="reminders-input-row">
+        <input
+          type="text"
+          className="reminders-input"
+          placeholder="Something you must not forget"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes('application/x-reminder')) {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+            }
+          }}
+          onDrop={(e) => {
+            const data = e.dataTransfer.getData('application/x-reminder')
+            if (data) {
+              e.preventDefault()
+              const reminder = JSON.parse(data)
+              setInputValue(reminder.text)
+              deleteReminder(reminder.id)
+            }
+          }}
+        />
+        <button
+          className="reminders-add-btn"
+          onClick={() => {
+            if (inputValue.trim()) {
+              addReminder(inputValue.trim())
+              setInputValue('')
+            }
+          }}
+          disabled={!inputValue.trim()}
+        >Add</button>
       </div>
-      <input
-        type="text"
-        className="reminders-input"
-        placeholder="Add item and press Enter"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('application/x-reminder')) {
-            e.preventDefault()
-            e.dataTransfer.dropEffect = 'move'
-          }
-        }}
-        onDrop={(e) => {
-          const data = e.dataTransfer.getData('application/x-reminder')
-          if (data) {
-            e.preventDefault()
-            const reminder = JSON.parse(data)
-            setInputValue(reminder.text)
-            deleteReminder(reminder.id)
-          }
-        }}
-      />
     </div>
   )
 }
