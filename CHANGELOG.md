@@ -5,6 +5,49 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This repository does not currently use release tags, so entries are grouped by date and major update scope.
 
+## 2026-03-25
+
+### Added
+- **Three-column layout** — app restructured from two columns into three: Schedule, Tasks, and Cognitive Load
+- **Cognitive Load column** — dedicated third column for managing mental bandwidth, containing:
+  - **Current Focus** — single prominent input showing what you're working on now, with drag-to-focus support from tasks and shortlist items
+  - **Interruption counter** — track external interruptions with color-coded thresholds (green 0–3, yellow 4–7, red 8+)
+  - **Context switch counter** — track self-inflicted context switches with color-coded thresholds (green 0–4, yellow 5–9, red 10+)
+  - **Protect Your Focus** — draggable checklist of focus rituals to toggle before deep work, reorderable to match your routine
+  - **Energy Levels** — hourly energy tagging (high/medium/low) that builds predicted patterns over time
+  - **Pomodoro Timer** — now persists state across page refreshes so sessions survive accidental tab closes
+  - **Brain Dump** — scratchpad for intrusive thoughts with expand/shrink, copy, and clear actions
+- **Shortlist overhaul** — renamed from "reminders" with drag-and-drop reorder, urgency cycling with auto-sort, restyled pills, and a bulk-add modal replacing the inline input
+- Trash buttons on schedule, shortlist, and focus panes
+- GitHub Pages deploy via `npx gh-pages` (removed dist/ from git tracking)
+- Revamped justfile with grouped help, colored output, `stop`, `status`, and `ci-quiet` targets
+
+### Changed
+- UI polish across shortlist, pomodoro, and input fields
+- Drawer UX improvements for habit tracker and project board
+
+## 2026-02-20 — 2026-02-25
+
+### Added
+- **Whiteboard drawer** — freehand drawing canvas using perfect-freehand, with full-viewport layout, undoable eraser, and delete confirmation
+- Whiteboard tile thumbnails with drag-and-drop
+- **Sticky notes** — floating notes overlay with 3D card styling, right-click to create, drag to reposition, copy-to-clipboard, and auto-clamp to viewport on load/toggle/resize
+- Sticky notes keyboard shortcut toggle with button tooltip
+- GitHub link icon in header bar
+
+### Fixed
+- Sticky notes save content on blur instead of every keystroke (performance)
+- Sticky notes viewport clamping on load, toggle, and window resize
+
+### Changed
+- Improved project board layout and drag-off-board behavior
+
+## 2026-02-16
+
+### Added
+- **Project board** — second drawer pane with cross-board drag-and-drop and project field
+- Escape key closes modals, autoFocus on modal inputs
+
 ## 2026-02-14
 
 ### Added

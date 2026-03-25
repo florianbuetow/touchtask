@@ -194,6 +194,10 @@ transition: all 0.15s ease;
 
 Icons come from `lucide-react`. Import only what you need. Check the existing import line at the top of App.jsx to see what's already available before adding new imports.
 
+## Changelog
+
+Update `CHANGELOG.md` after every new feature or bug fix. Add a short entry under the appropriate section (`Added`, `Fixed`, etc.) before committing.
+
 ## Linting
 
 Run `just ci-quiet` for the full pipeline or `npm run lint` / `npm run lint:css` from the `frontend/` directory for quick checks. Only pre-existing warnings (react-hooks/exhaustive-deps) are acceptable — new errors must be fixed before committing.
