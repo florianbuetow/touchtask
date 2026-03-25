@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowLeftRight, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, ShieldCheck, Menu, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, ShieldCheck, Menu, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -56,6 +56,83 @@ const getProgressColorClass = (percent) => {
 }
 
 // ============================================
+// ENERGY LEVEL HELPERS
+// ============================================
+
+const ENERGY_VALUES = { high: 3, medium: 2, low: 1 }
+
+const pruneEnergyData = (data) => {
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - 42) // 6 weeks
+  const cutoffStr = cutoff.toISOString().split('T')[0]
+  const pruned = {}
+  for (const date of Object.keys(data)) {
+    if (date >= cutoffStr) pruned[date] = data[date]
+  }
+  return pruned
+}
+
+const computeEnergyAverages = (data) => {
+  const today = getTodayString()
+  const hourTotals = {}
+  const hourCounts = {}
+  for (const [date, hours] of Object.entries(data)) {
+    if (date === today) continue
+    for (const [hour, level] of Object.entries(hours)) {
+      const val = ENERGY_VALUES[level]
+      if (!val) continue
+      hourTotals[hour] = (hourTotals[hour] || 0) + val
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1
+    }
+  }
+  const averages = {}
+  for (const hour of Object.keys(hourTotals)) {
+    const avg = hourTotals[hour] / hourCounts[hour]
+    averages[hour] = avg >= 2.5 ? 'high' : avg >= 1.5 ? 'medium' : 'low'
+  }
+  return averages
+}
+
+const generateDemoEnergyData = () => {
+  const data = {}
+  const today = new Date()
+  for (let daysAgo = 1; daysAgo <= 42; daysAgo++) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - daysAgo)
+    const dow = d.getDay()
+    if (dow === 0 || dow === 6) continue // skip weekends
+    const dateStr = d.toISOString().split('T')[0]
+    const hours = {}
+    for (let h = 8; h <= 20; h++) {
+      // skip some hours randomly (~15% chance of no record)
+      if (Math.random() < 0.15) continue
+      // Weighted pick: [highWeight, mediumWeight, lowWeight]
+      const weights = {
+        8:  [0.85, 0.10, 0.05],  // morning peak
+        9:  [0.90, 0.08, 0.02],  // peak focus
+        10: [0.80, 0.15, 0.05],  // still strong
+        11: [0.60, 0.30, 0.10],  // pre-lunch fade
+        12: [0.30, 0.50, 0.20],  // lunch approaching
+        13: [0.05, 0.25, 0.70],  // post-lunch crash
+        14: [0.08, 0.22, 0.70],  // deep slump
+        15: [0.15, 0.45, 0.40],  // starting to recover
+        16: [0.35, 0.40, 0.25],  // second wind for some
+        17: [0.20, 0.35, 0.45],  // fading
+        18: [0.10, 0.25, 0.65],  // winding down
+        19: [0.05, 0.20, 0.75],  // evening low
+        20: [0.05, 0.15, 0.80],  // done for the day
+      }
+      const [wH, wM] = weights[h] || [0.33, 0.34, 0.33]
+      const r = Math.random()
+      const level = r < wH ? 'high' : r < wH + wM ? 'medium' : 'low'
+      hours[String(h)] = level
+    }
+    data[dateStr] = hours
+  }
+  return data
+}
+
+// ============================================
 // STORAGE FUNCTIONS
 // ============================================
 
@@ -76,6 +153,8 @@ const STORAGE_KEYS = {
   CURRENT_FOCUS: 'touchtask_current_focus',
   BRAIN_DUMP: 'touchtask_brain_dump',
   CONTEXT_SWITCHES: 'touchtask_context_switches',
+  ENERGY_LEVELS: 'touchtask_energy_levels',
+  ENERGY_AVERAGES: 'touchtask_energy_averages',
 }
 
 const getDefaultSettings = () => ({
@@ -635,6 +714,22 @@ function App() {
   const [showPomodoro, setShowPomodoro] = useState(true)
   const [showKanban, setShowKanban] = useState(true)
   const [showMentalBandwidth, setShowMentalBandwidth] = useState(true)
+  const [energyLevels, setEnergyLevels] = useState(() => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ENERGY_LEVELS)
+      return data ? pruneEnergyData(JSON.parse(data)) : {}
+    } catch { return {} }
+  })
+  const [energyAverages, setEnergyAverages] = useState(() => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ENERGY_AVERAGES)
+      if (data) {
+        const parsed = JSON.parse(data)
+        if (parsed.date === getTodayString()) return parsed.averages
+      }
+      return null
+    } catch { return null }
+  })
   const [showFocusChecklist, setShowFocusChecklist] = useState(true)
   const [showCurrentFocus, setShowCurrentFocus] = useState(true)
   const [currentFocus, setCurrentFocus] = useState(() => {
@@ -665,7 +760,24 @@ function App() {
       return localStorage.getItem(STORAGE_KEYS.BRAIN_DUMP) || ''
     } catch { return '' }
   })
+  const [brainDumpQuick, setBrainDumpQuick] = useState('')
   const brainDumpTimerRef = useRef(null)
+  const [brainDumpClearConfirmOpen, setBrainDumpClearConfirmOpen] = useState(false)
+  const [brainDumpCopied, setBrainDumpCopied] = useState(false)
+  const [contextSwitchData, setContextSwitchData] = useState(() => {
+    const defaults = { date: getTodayString(), interrupted: 0, switched: 0 }
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CONTEXT_SWITCHES)
+      if (data) {
+        const parsed = JSON.parse(data)
+        if (parsed.date === getTodayString()) {
+          return { ...defaults, ...parsed, interrupted: parsed.interrupted ?? 0, switched: parsed.switched ?? 0 }
+        }
+      }
+      return defaults
+    } catch { return defaults }
+  })
+  const [contextSwitchClearConfirmOpen, setContextSwitchClearConfirmOpen] = useState(false)
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
@@ -683,8 +795,8 @@ function App() {
   const [habitModalOpen, setHabitModalOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState(null)
   const habitsSectionRef = useRef(null)
+  const habitDrawerRef = useRef(null)
   const secondDrawerRef = useRef(null)
-  const [drawerStyle, setDrawerStyle] = useState({})
   const [triggerLeft, setTriggerLeft] = useState(null)
 
   // Second drawer pane state
@@ -773,21 +885,22 @@ function App() {
       if (!el) return
       const rect = el.getBoundingClientRect()
       setTriggerLeft(rect.right - 136)
-      const headerEl = el.querySelector('.section-header')
-      const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : rect.top + 60
       document.documentElement.style.setProperty('--habits-pane-width', `${rect.width}px`)
-      setDrawerStyle({
-        left: rect.left,
-        width: rect.width,
-        maxHeight: `calc(100vh - ${headerBottom}px)`
-      })
+      const paneCenter = rect.left + rect.width / 2
+      // Center habit drawer on habits pane, clamped to viewport
+      const hd = habitDrawerRef.current
+      if (hd) {
+        const hdWidth = hd.offsetWidth
+        const idealLeft = paneCenter - hdWidth / 2
+        const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - hdWidth - 16))
+        hd.style.left = `${clampedLeft}px`
+      }
       // Center second drawer on habits pane, clamped to viewport
       const sd = secondDrawerRef.current
       if (sd) {
-        const drawerWidth = sd.offsetWidth
-        const paneCenter = rect.left + rect.width / 2
-        const idealLeft = paneCenter - drawerWidth / 2
-        const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - drawerWidth - 16))
+        const sdWidth = sd.offsetWidth
+        const idealLeft = paneCenter - sdWidth / 2
+        const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - sdWidth - 16))
         sd.style.left = `${clampedLeft}px`
       }
     }
@@ -830,18 +943,26 @@ function App() {
         })
         return
       }
-      // Escape to close editing or sticky notes
-      if (e.key === 'Escape' && showStickyNotes) {
-        if (editingNoteId) {
-          setEditingNoteId(null)
-        } else {
-          setShowStickyNotes(false)
+      // Escape to close editing, sticky notes, or drawers
+      if (e.key === 'Escape') {
+        if (showStickyNotes) {
+          if (editingNoteId) {
+            setEditingNoteId(null)
+          } else {
+            setShowStickyNotes(false)
+          }
+        } else if (whiteboardDrawerOpen) {
+          setWhiteboardDrawerOpen(false)
+        } else if (habitDrawerOpen) {
+          setHabitDrawerOpen(false)
+        } else if (secondDrawerOpen) {
+          setSecondDrawerOpen(false)
         }
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [showStickyNotes, editingNoteId, stickyNotes.length])
+  }, [showStickyNotes, editingNoteId, stickyNotes.length, habitDrawerOpen, secondDrawerOpen, whiteboardDrawerOpen])
 
   // Adjust sticky note positions on resize when visible
   useEffect(() => {
@@ -1176,6 +1297,7 @@ function App() {
       whiteboards: whiteboardsData,
       stickyNotes: stickyNotes,
       brainDump: brainDump,
+      energyLevels: energyLevels,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -1283,6 +1405,15 @@ function App() {
     localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, loadedBrainDump)
     setBrainDump(loadedBrainDump)
 
+    // Load energy levels
+    const loadedEnergy = pendingLoadData.energyLevels || {}
+    const prunedEnergy = pruneEnergyData(loadedEnergy)
+    localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(prunedEnergy))
+    setEnergyLevels(prunedEnergy)
+    const loadedAverages = computeEnergyAverages(prunedEnergy)
+    localStorage.setItem(STORAGE_KEYS.ENERGY_AVERAGES, JSON.stringify({ date: getTodayString(), averages: loadedAverages }))
+    setEnergyAverages(loadedAverages)
+
     // Reset settings to defaults
     const defaultSettings = getDefaultSettings()
     saveSettings(defaultSettings)
@@ -1348,6 +1479,12 @@ function App() {
     // Clear brain dump
     localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, '')
     setBrainDump('')
+
+    // Clear energy levels
+    localStorage.removeItem(STORAGE_KEYS.ENERGY_LEVELS)
+    localStorage.removeItem(STORAGE_KEYS.ENERGY_AVERAGES)
+    setEnergyLevels({})
+    setEnergyAverages(null)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -1487,6 +1624,14 @@ function App() {
     const demoBrainDump = 'Need to follow up on the API rate limiting issue\nRemember to ask Sarah about the design review\nLook into that weird CSS bug on mobile'
     localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, demoBrainDump)
     setBrainDump(demoBrainDump)
+
+    // Load demo energy levels
+    const demoEnergy = generateDemoEnergyData()
+    localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(demoEnergy))
+    setEnergyLevels(demoEnergy)
+    const demoAverages = computeEnergyAverages(demoEnergy)
+    localStorage.setItem(STORAGE_KEYS.ENERGY_AVERAGES, JSON.stringify({ date: getTodayString(), averages: demoAverages }))
+    setEnergyAverages(demoAverages)
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
@@ -1844,6 +1989,76 @@ function App() {
   }
 
   // ============================================
+  // ENERGY LEVEL HANDLERS
+  const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
+  const todayEnergy = energyLevels[getTodayString()] || {}
+
+  useEffect(() => {
+    const checkHour = () => {
+      const h = new Date().getHours()
+      setCurrentHour(prev => {
+        if (prev !== h) return h
+        return prev
+      })
+    }
+    const id = setInterval(checkHour, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const setEnergyLevel = (level) => {
+    const today = getTodayString()
+    const hour = String(new Date().getHours())
+    setEnergyLevels(prev => {
+      const updated = { ...prev, [today]: { ...prev[today], [hour]: level } }
+      const pruned = pruneEnergyData(updated)
+      localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(pruned))
+      return pruned
+    })
+  }
+
+  const refreshEnergyAverages = useCallback(() => {
+    const averages = computeEnergyAverages(energyLevels)
+    setEnergyAverages(averages)
+    localStorage.setItem(STORAGE_KEYS.ENERGY_AVERAGES, JSON.stringify({ date: getTodayString(), averages }))
+  }, [energyLevels])
+
+  // Compute averages on first render if not cached for today
+  useEffect(() => {
+    if (!energyAverages && Object.keys(energyLevels).length > 0) {
+      refreshEnergyAverages()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const energyWindowHours = useMemo(() => {
+    const hours = []
+    const start = currentHour - 3
+    for (let i = 0; i < 8; i++) {
+      hours.push(start + i)
+    }
+    return hours
+  }, [currentHour])
+
+  // CONTEXT SWITCH HANDLERS
+  const incrementInterrupted = () => {
+    setContextSwitchData(prev => {
+      const today = getTodayString()
+      const base = prev.date === today ? prev : { date: today, interrupted: 0, switched: 0, auto: prev.auto }
+      const updated = { ...base, interrupted: base.interrupted + 1 }
+      localStorage.setItem(STORAGE_KEYS.CONTEXT_SWITCHES, JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  const incrementSwitched = () => {
+    setContextSwitchData(prev => {
+      const today = getTodayString()
+      const base = prev.date === today ? prev : { date: today, interrupted: 0, switched: 0, auto: prev.auto }
+      const updated = { ...base, switched: base.switched + 1 }
+      localStorage.setItem(STORAGE_KEYS.CONTEXT_SWITCHES, JSON.stringify(updated))
+      return updated
+    })
+  }
+
   // POMODORO HANDLERS
   // ============================================
 
@@ -2088,7 +2303,17 @@ function App() {
     setDragSource(source)
     setDragSourceProjectId(sourceProjectId)
     drawerOpenBeforeDrag.current = secondDrawerOpen
-    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.effectAllowed = 'copyMove'
+    let task = kanbanTasks?.tasks.find(t => t.id === taskId)
+    if (!task) {
+      for (const project of (projectBoard?.projects || [])) {
+        task = project.tasks?.find(t => t.id === taskId)
+        if (task) break
+      }
+    }
+    if (task) {
+      e.dataTransfer.setData('application/x-task-title', task.title)
+    }
     // When dragging from project board, capture drag image and collapse on leave
     if (source === 'project') {
       const card = e.target.closest('.kanban-task')
@@ -2560,6 +2785,26 @@ function App() {
                   setCurrentFocus(e.target.value)
                   localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, e.target.value)
                 }}
+                onDragOver={(e) => {
+                  if (e.dataTransfer.types.includes('application/x-reminder') || e.dataTransfer.types.includes('application/x-task-title')) {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'copy'
+                  }
+                }}
+                onDrop={(e) => {
+                  const reminderData = e.dataTransfer.getData('application/x-reminder')
+                  const taskTitle = e.dataTransfer.getData('application/x-task-title')
+                  if (reminderData) {
+                    e.preventDefault()
+                    const reminder = JSON.parse(reminderData)
+                    setCurrentFocus(reminder.text)
+                    localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, reminder.text)
+                  } else if (taskTitle) {
+                    e.preventDefault()
+                    setCurrentFocus(taskTitle)
+                    localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, taskTitle)
+                  }
+                }}
               />
               {currentFocus && (
                 <button
@@ -2572,12 +2817,32 @@ function App() {
                 >×</button>
               )}
             </div>
+            <div className="context-switch-controls">
+              <button className="context-switch-btn" onClick={incrementInterrupted}>I was interrupted</button>
+              <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 8 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 4 ? 'warning' : 'normal'}`} title="Times interrupted today — 0–3 normal, 4–7 losing 1.5–2.5h to refocusing, 8+ more time recovering than doing deep work">{contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0}x</span>
+              <button className="context-switch-btn" onClick={incrementSwitched}>I switched context</button>
+              <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 10 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 5 ? 'warning' : 'normal'}`} title="Times you switched context today — 0–4 normal, 5–9 fragmented attention, 10+ task-hopping">{contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0}x</span>
+              <button
+                className="context-switch-clear"
+                onClick={() => setContextSwitchClearConfirmOpen(true)}
+                title="Reset counters"
+              ><Trash2 size={14} /></button>
+            </div>
           </div>
 
           {/* Focus Checklist */}
           <div className={`focus-checklist-section ${!showFocusChecklist ? 'hidden' : ''}`}>
             <div className="focus-checklist-header">
               <span className="focus-checklist-label">Protect your focus</span>
+              <button
+                className="focus-checklist-reset"
+                onClick={() => {
+                  const defaults = { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false, browsersClosed: false }
+                  setFocusChecklist(defaults)
+                  saveFocusChecklist(defaults)
+                }}
+                title="Reset all protections to default"
+              ><Trash2 size={14} /></button>
             </div>
             <div className="focus-checklist-items">
               {focusOrder.map((key, index) => {
@@ -2611,10 +2876,57 @@ function App() {
             </div>
           </div>
 
-          {/* Mental Bandwidth */}
-          <div className={!showMentalBandwidth ? 'hidden' : ''}>
-            <div className="mental-bandwidth-placeholder">
-              Coming soon.
+          {/* Energy Level Tracker */}
+          <div className={`energy-tracker-section ${!showMentalBandwidth ? 'hidden' : ''}`}>
+            <div className="energy-tracker-header">
+              <span className="energy-tracker-label">Energy level</span>
+            </div>
+            <div className="energy-tracker-content">
+              <div className="energy-toggle-group">
+                {[['high', 'High'], ['medium', 'Medium'], ['low', 'Low']].map(([level, label]) => (
+                  <button
+                    key={level}
+                    className={`energy-toggle-btn ${level} ${todayEnergy[String(currentHour)] === level ? 'active' : ''}`}
+                    onClick={() => setEnergyLevel(level)}
+                  >{label}</button>
+                ))}
+                <button
+                  className={`energy-toggle-btn unset ${!todayEnergy[String(currentHour)] ? 'active' : ''}`}
+                  onClick={() => {
+                    const today = getTodayString()
+                    const hour = String(currentHour)
+                    setEnergyLevels(prev => {
+                      const dayData = { ...prev[today] }
+                      delete dayData[hour]
+                      const updated = { ...prev, [today]: dayData }
+                      localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(updated))
+                      return updated
+                    })
+                  }}
+                >?</button>
+              </div>
+              <div className="energy-hour-window">
+                {energyWindowHours.map(h => {
+                  const hourStr = String(h)
+                  const todayLevel = todayEnergy[hourStr]
+                  const predictedLevel = energyAverages ? energyAverages[hourStr] : null
+                  const isCurrent = h === currentHour
+                  return (
+                    <div key={h} className={`energy-hour-slot ${isCurrent ? 'current' : ''}`}>
+                      <div className="energy-hour-label">{h < 0 ? h + 24 : h > 23 ? h - 24 : h}:00</div>
+                      <div className="energy-hour-bar">
+                        {todayLevel ? (
+                          <div className={`energy-bar-fill solid ${todayLevel}`} />
+                        ) : predictedLevel ? (
+                          <div className={`energy-bar-fill predicted ${predictedLevel}`} />
+                        ) : (
+                          <div className="energy-bar-fill empty" />
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
 
@@ -2699,7 +3011,35 @@ function App() {
           {/* Brain Dump */}
           <div className={`brain-dump-section ${!showBrainDump ? 'hidden' : ''}`}>
             <div className="brain-dump-header">
-              <span className="brain-dump-label">Brain dump</span>
+              <div className="brain-dump-quick">
+                <input
+                  type="text"
+                  className="brain-dump-quick-input"
+                  placeholder="Type it, let it go, refocus."
+                  value={brainDumpQuick}
+                  onChange={(e) => setBrainDumpQuick(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && brainDumpQuick.trim()) {
+                      const updated = brainDump ? brainDump + '\n\n' + brainDumpQuick.trim() : brainDumpQuick.trim()
+                      setBrainDump(updated)
+                      localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, updated)
+                      setBrainDumpQuick('')
+                    }
+                  }}
+                />
+                <button
+                  className="brain-dump-quick-btn"
+                  onClick={() => {
+                    if (brainDumpQuick.trim()) {
+                      const updated = brainDump ? brainDump + '\n\n' + brainDumpQuick.trim() : brainDumpQuick.trim()
+                      setBrainDump(updated)
+                      localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, updated)
+                      setBrainDumpQuick('')
+                    }
+                  }}
+                  title="Dump anything that is on your mind and keeps you from focussing"
+                >Dump</button>
+              </div>
             </div>
             <textarea
               cols="1"
@@ -2715,9 +3055,33 @@ function App() {
               }}
               onBlur={() => {
                 clearTimeout(brainDumpTimerRef.current)
-                localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, brainDump)
+                const trimmed = brainDump.split('\n').map(line => line.trim()).join('\n')
+                setBrainDump(trimmed)
+                localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, trimmed)
               }}
             />
+            {brainDump && (
+              <div className="brain-dump-actions">
+                <button
+                  className={`brain-dump-action-btn ${brainDumpCopied ? 'copied' : ''}`}
+                  onClick={() => {
+                    navigator.clipboard.writeText(brainDump)
+                    setBrainDumpCopied(true)
+                    setTimeout(() => setBrainDumpCopied(false), 1500)
+                  }}
+                  title="Copy to clipboard"
+                >
+                  <Copy size={14} />
+                </button>
+                <button
+                  className="brain-dump-action-btn danger"
+                  onClick={() => setBrainDumpClearConfirmOpen(true)}
+                  title="Clear brain dump"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </main>
@@ -2772,8 +3136,8 @@ function App() {
 
       {/* Habit Tracker Drawer */}
       <div
+        ref={habitDrawerRef}
         className={`habit-tracker-drawer ${habitDrawerOpen ? 'open' : ''}`}
-        style={drawerStyle}
       >
         <div className="habit-tracker-drawer-header">
           <h3 className="habit-tracker-drawer-title">Habit <span>Tracker</span></h3>
@@ -3011,6 +3375,33 @@ function App() {
         onConfirm={confirmRecycleDay}
         title="Reset Day"
         message="Are you sure? This will clear the daily list and repopulate it fresh from the master list."
+      />
+
+      {/* Brain Dump Clear Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={brainDumpClearConfirmOpen}
+        onClose={() => setBrainDumpClearConfirmOpen(false)}
+        onConfirm={() => {
+          setBrainDump('')
+          localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, '')
+          setBrainDumpClearConfirmOpen(false)
+        }}
+        title="Clear Brain Dump"
+        message="Are you sure you want to clear the brain dump? This action cannot be undone."
+      />
+
+      {/* Context Switch Clear Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={contextSwitchClearConfirmOpen}
+        onClose={() => setContextSwitchClearConfirmOpen(false)}
+        onConfirm={() => {
+          const reset = { date: getTodayString(), interrupted: 0, switched: 0 }
+          setContextSwitchData(reset)
+          localStorage.setItem(STORAGE_KEYS.CONTEXT_SWITCHES, JSON.stringify(reset))
+          setContextSwitchClearConfirmOpen(false)
+        }}
+        title="Reset Counters"
+        message="Are you sure you want to reset the context switch counters? This action cannot be undone."
       />
 
       {/* Settings Modal */}
@@ -4769,8 +5160,9 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
 
   const handleDragStart = (e, index) => {
     setDragIndex(index)
-    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.effectAllowed = 'copyMove'
     e.dataTransfer.setData('text/plain', index)
+    e.dataTransfer.setData('application/x-reminder', JSON.stringify(reminders[index]))
   }
 
   const handleDragOver = (e, index) => {
@@ -4831,6 +5223,21 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('application/x-reminder')) {
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+          }
+        }}
+        onDrop={(e) => {
+          const data = e.dataTransfer.getData('application/x-reminder')
+          if (data) {
+            e.preventDefault()
+            const reminder = JSON.parse(data)
+            setInputValue(reminder.text)
+            deleteReminder(reminder.id)
+          }
+        }}
       />
     </div>
   )
