@@ -155,6 +155,7 @@ const STORAGE_KEYS = {
   CONTEXT_SWITCHES: 'touchtask_context_switches',
   ENERGY_LEVELS: 'touchtask_energy_levels',
   ENERGY_AVERAGES: 'touchtask_energy_averages',
+  POMODORO_TIMER: 'touchtask_pomodoro_timer',
 }
 
 const getDefaultSettings = () => ({
@@ -669,19 +670,51 @@ function App() {
     { work: 50, break: 10 },
     { work: 90, break: 15 }
   ])
-  const [activePresetIndex, setActivePresetIndex] = useState(1)
+  const [activePresetIndex, setActivePresetIndex] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.POMODORO_TIMER)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.activePresetIndex != null) return parsed.activePresetIndex
+      }
+    } catch { /* ignore */ }
+    return 1
+  })
   const [editingPresetIndex, setEditingPresetIndex] = useState(null)
   const [editingPresetValues, setEditingPresetValues] = useState({ work: 0, break: 0 })
-  const [bellEnabled, setBellEnabled] = useState(true)
-  const [timerState, setTimerState] = useState({
-    isRunning: false,
-    isBreak: false,
-    timeRemaining: 25 * 60,
-    totalTime: 25 * 60,
-    activeTaskId: null,
-    elapsedWhileRunning: 0
+  const [bellEnabled, setBellEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.POMODORO_TIMER)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.bellEnabled != null) return parsed.bellEnabled
+      }
+    } catch { /* ignore */ }
+    return true
+  })
+  const [timerState, setTimerState] = useState(() => {
+    const defaults = { isRunning: false, isBreak: false, timeRemaining: 25 * 60, totalTime: 25 * 60, activeTaskId: null, elapsedWhileRunning: 0 }
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.POMODORO_TIMER)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.isRunning) {
+          const elapsed = Math.floor((Date.now() - parsed.savedAt) / 1000)
+          const remaining = Math.max(0, parsed.timeRemaining - elapsed)
+          return { ...defaults, activeTaskId: parsed.activeTaskId, totalTime: parsed.totalTime, isBreak: parsed.isBreak, isRunning: true, timeRemaining: remaining, elapsedWhileRunning: (parsed.elapsedWhileRunning || 0) + elapsed }
+        }
+        return { ...defaults, activeTaskId: parsed.activeTaskId, totalTime: parsed.totalTime, timeRemaining: parsed.timeRemaining, isBreak: parsed.isBreak, elapsedWhileRunning: parsed.elapsedWhileRunning || 0 }
+      }
+    } catch { /* ignore */ }
+    return defaults
   })
   const timerRef = useRef(null)
+  // Persist pomodoro state on every change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.POMODORO_TIMER, JSON.stringify({
+      ...timerState, activePresetIndex, bellEnabled, savedAt: Date.now()
+    }))
+  }, [timerState, activePresetIndex, bellEnabled])
 
   // Modal state
   const [blockModalOpen, setBlockModalOpen] = useState(false)
@@ -859,11 +892,14 @@ function App() {
       setWhiteboardsData(loadedWhiteboards)
       setStickyNotes(loadedStickyNotes)
       setSettings(appSettings)
-      setTimerState(prev => ({
-        ...prev,
-        timeRemaining: presets[activePresetIndex].work * 60,
-        totalTime: presets[activePresetIndex].work * 60
-      }))
+      setTimerState(prev => {
+        if (localStorage.getItem(STORAGE_KEYS.POMODORO_TIMER)) return prev
+        return {
+          ...prev,
+          timeRemaining: presets[activePresetIndex].work * 60,
+          totalTime: presets[activePresetIndex].work * 60
+        }
+      })
       setLoading(false)
       console.log('TouchTask: Initialization complete')
     } catch (error) {
@@ -2066,6 +2102,7 @@ function App() {
 
   const selectPreset = (index) => {
     setActivePresetIndex(index)
+    if (timerRef.current) clearInterval(timerRef.current)
     setTimerState(prev => ({
       ...prev,
       timeRemaining: presets[index].work * 60,
@@ -2073,7 +2110,6 @@ function App() {
       isRunning: false,
       isBreak: false
     }))
-    if (timerRef.current) clearInterval(timerRef.current)
   }
 
   const playNotification = useCallback(() => {
@@ -2212,10 +2248,7 @@ function App() {
     if (timerState.isRunning) {
       // Stop timer
       clearInterval(timerRef.current)
-      setTimerState(prev => ({
-        ...prev,
-        isRunning: false
-      }))
+      setTimerState(prev => ({ ...prev, isRunning: false }))
     } else {
       // Start timer
       setTimerState(prev => ({ ...prev, isRunning: true }))
@@ -2291,6 +2324,36 @@ function App() {
       elapsedWhileRunning: 0
     }))
   }
+
+  // Resume timer interval on page reload if it was running
+  useEffect(() => {
+    if (!timerState.isRunning || timerRef.current) return
+    if (timerState.timeRemaining <= 0) {
+      if (timerState.isBreak) {
+        setTimerState(prev => ({ ...prev, isRunning: false, isBreak: false, timeRemaining: presets[activePresetIndex].work * 60, totalTime: presets[activePresetIndex].work * 60 }))
+      } else {
+        startBreakMode()
+      }
+      return
+    }
+    timerRef.current = setInterval(() => {
+      setTimerState(prev => {
+        const newElapsed = prev.elapsedWhileRunning + 1
+        if (newElapsed % 60 === 0 && prev.activeTaskId) incrementTaskTime(prev.activeTaskId, 1)
+        if (prev.timeRemaining <= 1) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+          playNotification()
+          if (prev.isBreak) {
+            return { ...prev, isRunning: false, isBreak: false, timeRemaining: presets[activePresetIndex].work * 60, totalTime: presets[activePresetIndex].work * 60 }
+          }
+          startBreakMode()
+          return { ...prev, timeRemaining: 0, elapsedWhileRunning: newElapsed }
+        }
+        return { ...prev, timeRemaining: prev.timeRemaining - 1, elapsedWhileRunning: newElapsed }
+      })
+    }, 1000)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ============================================
   // DRAG AND DROP
@@ -2885,7 +2948,7 @@ function App() {
           {/* Energy Level Tracker */}
           <div className={`energy-tracker-section ${!showMentalBandwidth ? 'hidden' : ''}`}>
             <div className="energy-tracker-header">
-              <span className="energy-tracker-label">Energy level</span>
+              <span className="energy-tracker-label">Energy levels</span>
             </div>
             <div className="energy-tracker-content">
               <div className="energy-toggle-group">
