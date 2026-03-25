@@ -668,7 +668,7 @@ function App() {
       const appSettings = loadSettings()
       console.log('TouchTask: Settings loaded', appSettings)
       const loadedReminders = loadReminders()
-      console.log('TouchTask: Reminders loaded', loadedReminders)
+      console.log('TouchTask: Shortlist loaded', loadedReminders)
       const loadedMeetings = loadMeetings()
       console.log('TouchTask: Meetings loaded', loadedMeetings)
       const loadedHabitTracker = loadHabitTracker()
@@ -2288,7 +2288,7 @@ function App() {
                 <button
                   className={`focus-toggle ${!showReminders ? 'disabled' : ''}`}
                   onClick={() => setShowReminders(!showReminders)}
-                  title={showReminders ? 'Hide reminders' : 'Show reminders'}
+                  title={showReminders ? 'Hide shortlist' : 'Show shortlist'}
                 >
                   <StickyNote size={14} />
                 </button>
@@ -2310,12 +2310,19 @@ function App() {
             </div>
           </header>
 
-          {/* Reminders Section */}
+          {/* Shortlist Section */}
           <div className={!showReminders ? 'hidden' : ''}>
             <RemindersSection
               reminders={reminders}
               addReminder={addReminder}
               deleteReminder={deleteReminder}
+              reorderReminders={(fromIndex, toIndex) => {
+                const updated = [...reminders]
+                const [moved] = updated.splice(fromIndex, 1)
+                updated.splice(toIndex, 0, moved)
+                setReminders(updated)
+                saveReminders(updated)
+              }}
             />
           </div>
 
@@ -4455,8 +4462,10 @@ function MeetingsSection({ meetings, onAdd, onEdit }) {
 // REMINDERS SECTION COMPONENT
 // ============================================
 
-function RemindersSection({ reminders, addReminder, deleteReminder }) {
+function RemindersSection({ reminders, addReminder, deleteReminder, reorderReminders }) {
   const [inputValue, setInputValue] = useState('')
+  const [dragIndex, setDragIndex] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && inputValue.trim()) {
@@ -4465,17 +4474,51 @@ function RemindersSection({ reminders, addReminder, deleteReminder }) {
     }
   }
 
+  const handleDragStart = (e, index) => {
+    setDragIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index)
+  }
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  const handleDrop = (e, toIndex) => {
+    e.preventDefault()
+    if (dragIndex !== null && dragIndex !== toIndex) {
+      reorderReminders(dragIndex, toIndex)
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
   return (
     <div className="reminders-section">
       <div className="reminders-header">
-        <span className="reminders-label">Reminders</span>
+        <span className="reminders-label">Shortlist</span>
       </div>
       <div className="reminders-pills">
         {reminders.length === 0 ? (
-          <span className="reminders-empty">No reminders yet</span>
+          <span className="reminders-empty">No items yet</span>
         ) : (
-          reminders.map(reminder => (
-            <span key={reminder.id} className="reminder-pill">
+          reminders.map((reminder, index) => (
+            <span
+              key={reminder.id}
+              className={`reminder-pill${dragIndex === index ? ' dragging' : ''}${dragOverIndex === index && dragIndex !== index ? ' drag-over' : ''}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+            >
               {reminder.text}
               <button
                 className="reminder-delete"
@@ -4490,7 +4533,7 @@ function RemindersSection({ reminders, addReminder, deleteReminder }) {
       <input
         type="text"
         className="reminders-input"
-        placeholder="Add a reminder and press Enter..."
+        placeholder="Add item and press Enter"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}

@@ -1005,9 +1005,19 @@
     font-size: 0.75rem;
     color: var(--ink);
     line-height: 1;
+    cursor: grab;
 }
 
 .reminder-pill:hover {
+    border-color: var(--ink);
+}
+
+.reminder-pill.dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+}
+
+.reminder-pill.drag-over {
     border-color: var(--ink);
 }
 
