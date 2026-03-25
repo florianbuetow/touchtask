@@ -117,7 +117,7 @@ preview:
     @echo ""
 
 # Build the React frontend for production
-build:
+build: ci
     @echo ""
     @printf "\033[0;34m=== Building Frontend ===\033[0m\n"
     cd frontend && npm run build
@@ -125,10 +125,10 @@ build:
     @echo ""
 
 # Deploy dist to GitHub Pages
-deploy:
+deploy: build
     @echo ""
     @printf "\033[0;34m=== Deploying to GitHub Pages ===\033[0m\n"
-    git subtree push --prefix dist origin gh-pages
+    cd frontend && npx gh-pages -d ../dist || (printf "\033[31m✗ deploy failed\033[0m\n" && exit 1)
     @printf "\033[0;32m✓ deploy completed successfully\033[0m\n"
     @echo ""
 
@@ -151,13 +151,15 @@ ci:
     cd frontend && npm run complexity
     @echo ""
     @printf "\033[0;34m=== JEST (Tests) ===\033[0m\n"
-    cd frontend && npm run test || echo "No tests found (this is expected if you haven't written any yet)"
+    cd frontend && npm run test
     @echo ""
     @printf "\033[0;34m=== LIGHTHOUSE (Performance) ===\033[0m\n"
     cd frontend && npm run preview -- --port {{port}} & PID=$$! && \
     until curl -s http://localhost:{{port}}/touchtask/ > /dev/null; do :; done && \
     npx lighthouse http://localhost:{{port}}/touchtask/ --output=html --output=json --output-path=./reports/lighthouse --chrome-flags="--headless=new" --only-categories=performance,accessibility,best-practices,seo ; \
-    kill $$PID 2>/dev/null || true
+    LHRESULT=$$? ; \
+    kill $$PID 2>/dev/null || true ; \
+    [ $$LHRESULT -eq 0 ] || (printf "\033[31m✗ lighthouse failed\033[0m\n" && exit 1)
     @node -e "\
     const d = require('./reports/lighthouse.report.json');\
     const s = c => Math.round(d.categories[c].score * 100);\
@@ -204,8 +206,9 @@ ci-quiet:
     PID=$!
     until curl -s http://localhost:{{port}}/touchtask/ > /dev/null; do :; done
     output=$(npx lighthouse http://localhost:{{port}}/touchtask/ --output=html --output=json --output-path=./reports/lighthouse --chrome-flags="--headless=new" --only-categories=performance,accessibility,best-practices,seo 2>&1)
+    lh_status=$?
     kill $PID 2>/dev/null || true
-    if [ $? -ne 0 ]; then
+    if [ $lh_status -ne 0 ]; then
         printf "\033[0;31m✗ Lighthouse failed\033[0m\n"
         echo "$output"
         echo ""

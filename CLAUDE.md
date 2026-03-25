@@ -15,3 +15,9 @@ Follow these when editing the justfile:
 6. Every target must end with a clear short status message:
    - On success: green (`\033[32m`) message confirming completion.
    - On failure: red (`\033[31m`) message indicating what failed, then exit 1.
+7. Never swallow errors. Do not use `|| echo`, `|| true`, or `;` in ways that hide a non-zero exit code from a check, build, or deploy step. When a background process must be cleaned up (e.g. `kill`), capture the exit code first (`RESULT=$?`), then clean up, then check `RESULT`.
+8. The deploy pipeline is `ci → build → deploy`. Each stage must gate the next — if ci fails, build must not run; if build fails, deploy must not run. Use just's dependency syntax (e.g. `build: ci`) to enforce this.
+
+# UI Rules
+
+1. The order of toggle icons in column headers must match the order of their corresponding panes in the column (top-to-bottom).

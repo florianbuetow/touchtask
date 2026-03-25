@@ -959,6 +959,88 @@
     flex-direction: column;
 }
 
+/* Current Focus */
+.current-focus-section {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1.25rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+}
+
+.current-focus-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+}
+
+.current-focus-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.current-focus-content {
+    position: relative;
+}
+
+.current-focus-input {
+    display: block;
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 0.75rem 2rem 0.75rem 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-align: center;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.current-focus-input::placeholder {
+    color: var(--accent);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.current-focus-input.has-text {
+    background: var(--success-light);
+    border-color: var(--success);
+    color: var(--success);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.current-focus-input:focus {
+    border-color: var(--success);
+}
+
+.current-focus-clear {
+    position: absolute;
+    right: 0.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.current-focus-clear:hover {
+    color: var(--accent);
+}
+
 /* Reminders Section */
 .mental-bandwidth-placeholder {
     background: var(--paper);
@@ -1147,6 +1229,14 @@
 
 .focus-checklist-btn.off:hover {
     background: var(--rule);
+}
+
+.focus-checklist-btn.dragging {
+    opacity: 0.4;
+}
+
+.focus-checklist-btn.drag-over {
+    border-color: #000000;
 }
 
 .focus-tooltip {

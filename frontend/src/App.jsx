@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, DoorClosed, DoorOpen, Eye, EyeOff, Headphones, HeadphoneOff, LampDesk, Menu, Monitor, MonitorOff, Pen, Pencil, Phone, PhoneOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, ShieldCheck, Menu, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, StickyNote, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -72,6 +72,8 @@ const STORAGE_KEYS = {
   WHITEBOARDS: 'touchtask_whiteboards',
   STICKY_NOTES: 'touchtask_sticky_notes',
   FOCUS_CHECKLIST: 'touchtask_focus_checklist',
+  FOCUS_ORDER: 'touchtask_focus_order',
+  CURRENT_FOCUS: 'touchtask_current_focus',
 }
 
 const getDefaultSettings = () => ({
@@ -506,6 +508,20 @@ const saveFocusChecklist = (data) => {
   localStorage.setItem(STORAGE_KEYS.FOCUS_CHECKLIST, JSON.stringify(data))
 }
 
+const DEFAULT_FOCUS_ORDER = ['notificationsOff', 'messagesOff', 'phoneSilenced', 'alertsMuted', 'browsersClosed', 'wifiOff', 'monitorOff', 'musicOn', 'doorClosed']
+
+const FOCUS_ITEMS_CONFIG = {
+  notificationsOff: { onIcon: BellOff, offIcon: BellRing, onTip: 'Your notifications are turned off', offTip: 'Turn off your notifications' },
+  messagesOff: { onIcon: CaptionsOff, offIcon: Captions, onTip: 'Your instant messages are turned off', offTip: 'Turn off instant messages' },
+  phoneSilenced: { onIcon: PhoneOff, offIcon: Phone, onTip: 'Your phone is silenced', offTip: 'Silence your phone' },
+  alertsMuted: { onIcon: VolumeOff, offIcon: Volume2, onTip: 'Music and audio are muted', offTip: 'Mute music and all audio' },
+  browsersClosed: { onIcon: GlobeLock, offIcon: Globe, onTip: 'Unused browser tabs are closed', offTip: 'Close unused browser tabs and windows' },
+  wifiOff: { onIcon: WifiOff, offIcon: Wifi, onTip: 'Internet is turned off', offTip: 'Turn internet off' },
+  monitorOff: { onIcon: PowerOff, offIcon: Power, onTip: 'Extra devices and monitors are off', offTip: 'Turn extra devices, tablets, phones and monitors off' },
+  musicOn: { onIcon: HeadphoneOff, offIcon: Headphones, onTip: 'Noise canceling headphones on', offTip: 'Wear noise canceling headphones' },
+  doorClosed: { onIcon: DoorClosed, offIcon: DoorOpen, onTip: 'Your door is closed', offTip: 'Close your door' },
+}
+
 const clampNotesToViewport = (notes, newW, newH) => {
   let changed = false
   const clamped = notes.map(n => {
@@ -618,11 +634,28 @@ function App() {
   const [showKanban, setShowKanban] = useState(true)
   const [showMentalBandwidth, setShowMentalBandwidth] = useState(true)
   const [showFocusChecklist, setShowFocusChecklist] = useState(true)
+  const [showCurrentFocus, setShowCurrentFocus] = useState(true)
+  const [currentFocus, setCurrentFocus] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.CURRENT_FOCUS) || ''
+    } catch { return '' }
+  })
   const [focusChecklist, setFocusChecklist] = useState(() => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.FOCUS_CHECKLIST)
-      return data ? JSON.parse(data) : { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false }
-    } catch { return { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false } }
+      return data ? JSON.parse(data) : { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false, browsersClosed: false }
+    } catch { return { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false, browsersClosed: false } }
+  })
+  const [focusOrder, setFocusOrder] = useState(() => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.FOCUS_ORDER)
+      if (data) {
+        const parsed = JSON.parse(data)
+        const missing = DEFAULT_FOCUS_ORDER.filter(k => !parsed.includes(k))
+        return [...parsed, ...missing]
+      }
+      return DEFAULT_FOCUS_ORDER
+    } catch { return DEFAULT_FOCUS_ORDER }
   })
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
@@ -1881,6 +1914,41 @@ function App() {
     })
   }
 
+  const [focusDragIndex, setFocusDragIndex] = useState(null)
+  const [focusDragOverIndex, setFocusDragOverIndex] = useState(null)
+
+  const handleFocusDragStart = (e, index) => {
+    setFocusDragIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `focus-${index}`)
+  }
+
+  const handleFocusDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setFocusDragOverIndex(index)
+  }
+
+  const handleFocusDrop = (e, toIndex) => {
+    e.preventDefault()
+    if (focusDragIndex !== null && focusDragIndex !== toIndex) {
+      setFocusOrder(prev => {
+        const updated = [...prev]
+        const [moved] = updated.splice(focusDragIndex, 1)
+        updated.splice(toIndex, 0, moved)
+        localStorage.setItem(STORAGE_KEYS.FOCUS_ORDER, JSON.stringify(updated))
+        return updated
+      })
+    }
+    setFocusDragIndex(null)
+    setFocusDragOverIndex(null)
+  }
+
+  const handleFocusDragEnd = () => {
+    setFocusDragIndex(null)
+    setFocusDragOverIndex(null)
+  }
+
   const toggleTimer = useCallback(() => {
     if (timerState.isBreak) {
       // Skip break
@@ -2415,11 +2483,18 @@ function App() {
               <span className="section-subtitle">Mental bandwidth</span>
               <div className="section-meta-buttons">
                 <button
+                  className={`focus-toggle ${!showCurrentFocus ? 'disabled' : ''}`}
+                  onClick={() => setShowCurrentFocus(!showCurrentFocus)}
+                  title={showCurrentFocus ? 'Hide current focus' : 'Show current focus'}
+                >
+                  <Crosshair size={14} />
+                </button>
+                <button
                   className={`focus-toggle ${!showFocusChecklist ? 'disabled' : ''}`}
                   onClick={() => setShowFocusChecklist(!showFocusChecklist)}
                   title={showFocusChecklist ? 'Hide protect your focus' : 'Show protect your focus'}
                 >
-                  <LampDesk size={14} />
+                  <ShieldCheck size={14} />
                 </button>
                 <button
                   className={`focus-toggle ${!showMentalBandwidth ? 'disabled' : ''}`}
@@ -2439,76 +2514,63 @@ function App() {
             </div>
           </header>
 
+          {/* Current Focus */}
+          <div className={`current-focus-section ${!showCurrentFocus ? 'hidden' : ''}`}>
+            <div className="current-focus-header">
+              <span className="current-focus-label">Current focus</span>
+            </div>
+            <div className="current-focus-content">
+              <input
+                type="text"
+                className={`current-focus-input ${currentFocus ? 'has-text' : ''}`}
+                placeholder="NO FOCUS"
+                value={currentFocus}
+                onChange={(e) => {
+                  setCurrentFocus(e.target.value)
+                  localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, e.target.value)
+                }}
+              />
+              {currentFocus && (
+                <button
+                  className="current-focus-clear"
+                  onClick={() => {
+                    setCurrentFocus('')
+                    localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, '')
+                  }}
+                  title="Clear focus"
+                >×</button>
+              )}
+            </div>
+          </div>
+
           {/* Focus Checklist */}
           <div className={`focus-checklist-section ${!showFocusChecklist ? 'hidden' : ''}`}>
             <div className="focus-checklist-header">
               <span className="focus-checklist-label">Protect your focus</span>
             </div>
             <div className="focus-checklist-items">
-              <button
-                className={`focus-checklist-btn ${focusChecklist.notificationsOff ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('notificationsOff')}
-                data-tooltip={focusChecklist.notificationsOff ? 'Your notifications are turned off' : 'Turn off your notifications'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.notificationsOff ? <BellOff size={28} /> : <BellRing size={28} />}
-              </button>
-              <button
-                className={`focus-checklist-btn ${focusChecklist.messagesOff ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('messagesOff')}
-                data-tooltip={focusChecklist.messagesOff ? 'Your messages are turned off' : 'Turn off your messages'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.messagesOff ? <CaptionsOff size={28} /> : <Captions size={28} />}
-              </button>
-              <button
-                className={`focus-checklist-btn ${focusChecklist.phoneSilenced ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('phoneSilenced')}
-                data-tooltip={focusChecklist.phoneSilenced ? 'Your phone is silenced' : 'Silence your phone'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.phoneSilenced ? <PhoneOff size={28} /> : <Phone size={28} />}
-              </button>
-              <button
-                className={`focus-checklist-btn ${focusChecklist.alertsMuted ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('alertsMuted')}
-                data-tooltip={focusChecklist.alertsMuted ? 'Your alerts are muted' : 'Mute your alerts'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.alertsMuted ? <VolumeOff size={28} /> : <Volume2 size={28} />}
-              </button>
-              <button
-                className={`focus-checklist-btn ${focusChecklist.wifiOff ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('wifiOff')}
-                data-tooltip={focusChecklist.wifiOff ? 'Your internet is turned off' : 'Turn your internet off'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.wifiOff ? <WifiOff size={28} /> : <Wifi size={28} />}
-              </button>
-              <button
-                className={`focus-checklist-btn ${focusChecklist.monitorOff ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('monitorOff')}
-                data-tooltip={focusChecklist.monitorOff ? 'Unneeded monitors are turned off' : 'Turn off monitors you don\'t need'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.monitorOff ? <MonitorOff size={28} /> : <Monitor size={28} />}
-              </button>
-              <button
-                className={`focus-checklist-btn ${focusChecklist.musicOn ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('musicOn')}
-                data-tooltip={focusChecklist.musicOn ? 'Your music is turned off' : 'Turn off your music'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.musicOn ? <HeadphoneOff size={28} /> : <Headphones size={28} />}
-              </button>
-              <button
-                className={`focus-checklist-btn ${focusChecklist.doorClosed ? 'on' : 'off'}`}
-                onClick={() => toggleFocusItem('doorClosed')}
-                data-tooltip={focusChecklist.doorClosed ? 'Your door is closed' : 'Close your door'}
-                onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-              >
-                {focusChecklist.doorClosed ? <DoorClosed size={28} /> : <DoorOpen size={28} />}
-              </button>
+              {focusOrder.map((key, index) => {
+                const cfg = FOCUS_ITEMS_CONFIG[key]
+                if (!cfg) return null
+                const isOn = focusChecklist[key]
+                const Icon = isOn ? cfg.onIcon : cfg.offIcon
+                return (
+                  <button
+                    key={key}
+                    className={`focus-checklist-btn ${isOn ? 'on' : 'off'}${focusDragIndex === index ? ' dragging' : ''}${focusDragOverIndex === index && focusDragIndex !== index ? ' drag-over' : ''}`}
+                    onClick={() => toggleFocusItem(key)}
+                    data-tooltip={isOn ? cfg.onTip : cfg.offTip}
+                    onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+                    draggable
+                    onDragStart={(e) => handleFocusDragStart(e, index)}
+                    onDragOver={(e) => handleFocusDragOver(e, index)}
+                    onDrop={(e) => handleFocusDrop(e, index)}
+                    onDragEnd={handleFocusDragEnd}
+                  >
+                    <Icon size={28} />
+                  </button>
+                )
+              })}
             </div>
             <div
               className={`focus-tooltip ${focusTooltip.visible ? 'visible' : ''} ${focusTooltip.type}`}
