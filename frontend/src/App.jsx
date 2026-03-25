@@ -1439,13 +1439,29 @@ function App() {
   // REMINDERS HANDLERS
   // ============================================
 
+  const sortByUrgency = (items) => {
+    const priority = { red: 0, orange: 1 }
+    return [...items].sort((a, b) => (priority[a.urgency] ?? 2) - (priority[b.urgency] ?? 2))
+  }
+
   const addReminder = (text) => {
     if (!text.trim()) return
     const newReminder = {
       id: generateId(),
       text: text.trim()
     }
-    const updated = [...reminders, newReminder]
+    const updated = sortByUrgency([...reminders, newReminder])
+    setReminders(updated)
+    saveReminders(updated)
+  }
+
+  const cycleReminderUrgency = (id) => {
+    const cycle = [null, 'orange', 'red']
+    const updated = sortByUrgency(reminders.map(r => {
+      if (r.id !== id) return r
+      const idx = cycle.indexOf(r.urgency || null)
+      return { ...r, urgency: cycle[(idx + 1) % cycle.length] }
+    }))
     setReminders(updated)
     saveReminders(updated)
   }
@@ -2316,12 +2332,14 @@ function App() {
               reminders={reminders}
               addReminder={addReminder}
               deleteReminder={deleteReminder}
+              cycleUrgency={cycleReminderUrgency}
               reorderReminders={(fromIndex, toIndex) => {
                 const updated = [...reminders]
                 const [moved] = updated.splice(fromIndex, 1)
                 updated.splice(toIndex, 0, moved)
-                setReminders(updated)
-                saveReminders(updated)
+                const sorted = sortByUrgency(updated)
+                setReminders(sorted)
+                saveReminders(sorted)
               }}
             />
           </div>
@@ -4462,7 +4480,7 @@ function MeetingsSection({ meetings, onAdd, onEdit }) {
 // REMINDERS SECTION COMPONENT
 // ============================================
 
-function RemindersSection({ reminders, addReminder, deleteReminder, reorderReminders }) {
+function RemindersSection({ reminders, addReminder, deleteReminder, reorderReminders, cycleUrgency }) {
   const [inputValue, setInputValue] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
@@ -4512,8 +4530,9 @@ function RemindersSection({ reminders, addReminder, deleteReminder, reorderRemin
           reminders.map((reminder, index) => (
             <span
               key={reminder.id}
-              className={`reminder-pill${dragIndex === index ? ' dragging' : ''}${dragOverIndex === index && dragIndex !== index ? ' drag-over' : ''}`}
+              className={`reminder-pill${reminder.urgency ? ` urgency-${reminder.urgency}` : ''}${dragIndex === index ? ' dragging' : ''}${dragOverIndex === index && dragIndex !== index ? ' drag-over' : ''}`}
               draggable
+              onClick={() => cycleUrgency(reminder.id)}
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}

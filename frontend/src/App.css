@@ -1012,6 +1012,18 @@
     border-color: var(--ink);
 }
 
+.reminder-pill.urgency-orange {
+    background: #fff3e0;
+    border-color: #f59e0b;
+    color: #92400e;
+}
+
+.reminder-pill.urgency-red {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #991b1b;
+}
+
 .reminder-pill.dragging {
     opacity: 0.4;
     transform: scale(0.95);
