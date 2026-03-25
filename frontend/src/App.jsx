@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Menu, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Maximize2, Menu, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -795,6 +795,7 @@ function App() {
   })
   const [brainDumpQuick, setBrainDumpQuick] = useState('')
   const brainDumpTimerRef = useRef(null)
+  const brainDumpTextareaRef = useRef(null)
   const [brainDumpClearConfirmOpen, setBrainDumpClearConfirmOpen] = useState(false)
   const [brainDumpCopied, setBrainDumpCopied] = useState(false)
   const [contextSwitchData, setContextSwitchData] = useState(() => {
@@ -3111,6 +3112,7 @@ function App() {
               </div>
             </div>
             <textarea
+              ref={brainDumpTextareaRef}
               cols="1"
               placeholder="Offload your thoughts here..."
               value={brainDump}
@@ -3131,6 +3133,31 @@ function App() {
             />
             {brainDump && (
               <div className="brain-dump-actions">
+                <button
+                  className="brain-dump-action-btn"
+                  onClick={() => {
+                    const ta = brainDumpTextareaRef.current
+                    if (ta) {
+                      ta.style.height = 'auto'
+                      ta.style.height = (ta.scrollHeight + 16) + 'px'
+                      const section = ta.closest('.brain-dump-section')
+                      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                  }}
+                  title="Expand to fit content"
+                >
+                  <Maximize2 size={14} />
+                </button>
+                <button
+                  className="brain-dump-action-btn"
+                  onClick={() => {
+                    const ta = brainDumpTextareaRef.current
+                    if (ta) ta.style.height = '150px'
+                  }}
+                  title="Shrink to default height"
+                >
+                  <Minimize2 size={14} />
+                </button>
                 <button
                   className={`brain-dump-action-btn ${brainDumpCopied ? 'copied' : ''}`}
                   onClick={() => {

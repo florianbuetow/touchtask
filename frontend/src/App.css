@@ -1953,7 +1953,7 @@
     display: block;
     width: 100%;
     max-width: 100%;
-    min-height: 120px;
+    height: 150px;
     margin: 0;
     box-sizing: border-box;
     background: var(--paper-dark);
@@ -1965,8 +1965,8 @@
     line-height: 1.6;
     color: var(--ink);
     outline: none;
-    resize: vertical;
-    transition: border-color 0.15s ease;
+    resize: none;
+    transition: border-color 0.15s ease, height 0.2s ease;
 }
 
 .brain-dump-section textarea::placeholder {
