@@ -6103,7 +6103,7 @@ function AboutModal({ isOpen, onClose }) {
               href="https://github.com/florianbuetow/touchtask"
               target="_blank"
               rel="noopener noreferrer"
-            >View on GitHub</a>
+            >Open Source on GitHub</a>
           </div>
 
           <div className="about-copyright">
@@ -6113,6 +6113,11 @@ function AboutModal({ isOpen, onClose }) {
           <div className="about-credits">
             <span className="about-credits-label">Credits</span>
             Activity icons by <a href="https://icons8.com" target="_blank" rel="noopener noreferrer">Icons8</a>
+          </div>
+
+          <div className="about-privacy">
+            <span className="about-privacy-label">Privacy</span>
+            All data is stored locally in your browser. Speech-to-text uses your browser's Web Speech API — audio may be processed by your browser vendor (e.g. Google for Chrome). TouchTask does not collect or transmit any data. Provided "as is" without warranty.
           </div>
         </div>
       </div>

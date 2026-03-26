@@ -2315,7 +2315,7 @@
 }
 
 .break-overlay-close:hover {
-    color: #fff;
+    color: #ffffff;
     background: rgb(255 255 255 / 10%);
 }
 
@@ -3334,7 +3334,7 @@
 
 .about-links a {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
+    font-size: 0.9rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--ink);
@@ -3353,7 +3353,7 @@
 .about-copyright {
     margin-top: 1.5rem;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.55rem;
+    font-size: 0.85rem;
     letter-spacing: 0.05em;
     color: var(--muted);
 }
@@ -3361,7 +3361,7 @@
 .about-credits {
     margin-top: 0.5rem;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.55rem;
+    font-size: 0.85rem;
     letter-spacing: 0.05em;
     color: var(--muted);
 }
@@ -3369,14 +3369,36 @@
 .about-credits-label {
     display: block;
     text-transform: uppercase;
-    font-size: 0.5rem;
+    font-size: 0.8rem;
     letter-spacing: 0.1em;
     color: var(--muted);
     margin-bottom: 0.25rem;
+    text-decoration: underline;
 }
 
 .about-credits a {
     color: var(--accent);
+    text-decoration: underline;
+}
+
+.about-privacy {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.about-privacy-label {
+    display: block;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
     text-decoration: underline;
 }
 
