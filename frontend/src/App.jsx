@@ -157,6 +157,7 @@ const STORAGE_KEYS = {
   ENERGY_AVERAGES: 'touchtask_energy_averages',
   POMODORO_TIMER: 'touchtask_pomodoro_timer',
   BREAK_TIMER: 'touchtask_break_timer',
+  BREAK_ACTIVITIES_ORDER: 'touchtask_break_activities_order',
 }
 
 const getDefaultSettings = () => ({
@@ -819,6 +820,29 @@ function App() {
     return false
   })
   const breakTimerRef = useRef(null)
+  const [activeBreak, setActiveBreak] = useState(null) // { file, name, totalTime }
+  const defaultBreakActivities = [
+    { file: 'icons8-meditation-64.png', name: 'Meditate' },
+    { file: 'icons8-stretching-hamstring-64.png', name: 'Stretch a little' },
+    { file: 'icons8-squats-64.png', name: 'Do some squats' },
+    { file: 'icons8-strength-64.png', name: 'Strength training' },
+    { file: 'icons8-spinning-64.png', name: 'Spin it out' },
+    { file: 'icons8-walking-64.png', name: 'Go for a walk' },
+    { file: 'icons8-water-64.png', name: 'Drink some water' },
+    { file: 'icons8-eat-64.png', name: 'Time to eat' },
+    { file: 'icons8-laundry-64.png', name: 'Do the laundry' },
+    { file: 'icons8-trash-64.png', name: 'Take out the trash' },
+    { file: 'icons8-dirty-dishes-64.png', name: 'Do some chores' },
+    { file: 'icons8-potted-plant-64.png', name: 'Water the plants' },
+  ]
+  const [breakActivities, setBreakActivities] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER)
+      if (saved) return JSON.parse(saved)
+    } catch { /* ignore */ }
+    return defaultBreakActivities
+  })
+  const [draggedBreakIdx, setDraggedBreakIdx] = useState(null)
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.BREAK_TIMER, JSON.stringify({
       remaining: breakTimeRemaining, running: breakTimerRunning, savedAt: Date.now()
@@ -2898,18 +2922,18 @@ function App() {
                   <Timer size={14} />
                 </button>
                 <button
-                  className={`focus-toggle ${!showBrainDump ? 'disabled' : ''}`}
-                  onClick={() => setShowBrainDump(!showBrainDump)}
-                  title={showBrainDump ? 'Hide brain dump' : 'Show brain dump'}
-                >
-                  <NotebookPen size={14} />
-                </button>
-                <button
                   className={`focus-toggle ${!showBreakActivities ? 'disabled' : ''}`}
                   onClick={() => setShowBreakActivities(!showBreakActivities)}
                   title={showBreakActivities ? 'Hide break activities' : 'Show break activities'}
                 >
                   <Coffee size={14} />
+                </button>
+                <button
+                  className={`focus-toggle ${!showBrainDump ? 'disabled' : ''}`}
+                  onClick={() => setShowBrainDump(!showBrainDump)}
+                  title={showBrainDump ? 'Hide brain dump' : 'Show brain dump'}
+                >
+                  <NotebookPen size={14} />
                 </button>
               </div>
             </div>
@@ -3155,6 +3179,129 @@ function App() {
             </div>
           </div>
 
+          {/* Break Activities */}
+          <div className={`break-activities-section ${!showBreakActivities ? 'hidden' : ''}`}>
+            <div className="break-activities-header">
+              <span className="break-activities-label">Break</span>
+            </div>
+
+            <div className="break-content">
+              <div className="break-left">
+                <div className={`break-timer-display ${breakTimerRunning ? 'running' : ''}`}>
+                  <input
+                    type="text"
+                    className="break-timer-field"
+                    value={Math.ceil(breakTimeRemaining / 60)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
+                      setBreakTimeRemaining(Math.min(val, 90) * 60)
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    maxLength={2}
+                  />
+                  <button
+                    className="break-timer-unit"
+                    onClick={() => {
+                      setBreakTimerRunning(false)
+                      setBreakTimeRemaining(0)
+                    }}
+                    title="Reset timer"
+                  >
+                    <span className="break-timer-unit-text">min</span>
+                    <span className="break-timer-unit-reset">reset</span>
+                  </button>
+                </div>
+                <span className="break-timer-until">
+                  until {new Date(Date.now() + breakTimeRemaining * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </span>
+                <div className="break-presets">
+                  {[1, 5].map(mins => (
+                    <button
+                      key={mins}
+                      className="break-preset-btn"
+                      onClick={() => {
+                        setBreakTimeRemaining(prev => Math.min(prev + mins * 60, 90 * 60))
+                      }}
+                    >+{mins}</button>
+                  ))}
+                  <button
+                    className="break-preset-btn break-snap-btn"
+                    onClick={() => {
+                      const now = new Date()
+                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
+                      const endHour = now.getHours() + Math.floor(endMin / 60)
+                      const endMinOfHour = endMin % 60
+                      const floored = Math.floor(endMinOfHour / 15) * 15
+                      const targetMin = floored === endMinOfHour ? endMinOfHour - 15 : floored
+                      const targetTotal = endHour * 60 + targetMin
+                      const nowTotal = now.getHours() * 60 + now.getMinutes()
+                      setBreakTimeRemaining(Math.max(0, targetTotal - nowTotal) * 60)
+                    }}
+                    title="Round down to previous quarter hour"
+                  >
+                    <ArrowBigLeftDash size={12} />
+                  </button>
+                  <button
+                    className="break-preset-btn break-snap-btn"
+                    onClick={() => {
+                      const now = new Date()
+                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
+                      const endHour = now.getHours() + Math.floor(endMin / 60)
+                      const endMinOfHour = endMin % 60
+                      const ceiled = Math.ceil(endMinOfHour / 15) * 15
+                      const targetMin = ceiled === endMinOfHour ? endMinOfHour + 15 : ceiled
+                      const targetTotal = endHour * 60 + targetMin
+                      const nowTotal = now.getHours() * 60 + now.getMinutes()
+                      setBreakTimeRemaining(Math.min((targetTotal - nowTotal) * 60, 90 * 60))
+                    }}
+                    title="Round up to next quarter hour"
+                  >
+                    <ArrowBigRightDash size={12} />
+                  </button>
+                </div>
+              </div>
+              <div className="break-activities-grid">
+                {breakActivities.map((activity, idx) => (
+                  <button
+                    key={activity.file}
+                    className={`break-activity-btn ${draggedBreakIdx === idx ? 'dragging' : ''}`}
+                    data-tooltip={activity.name}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedBreakIdx(idx)
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      if (draggedBreakIdx === null || draggedBreakIdx === idx) return
+                      const updated = [...breakActivities]
+                      const [moved] = updated.splice(draggedBreakIdx, 1)
+                      updated.splice(idx, 0, moved)
+                      setBreakActivities(updated)
+                      setDraggedBreakIdx(idx)
+                    }}
+                    onDragEnd={() => {
+                      setDraggedBreakIdx(null)
+                      localStorage.setItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER, JSON.stringify(breakActivities))
+                    }}
+                    onClick={() => {
+                      setActiveBreak({ ...activity, totalTime: breakTimeRemaining })
+                      if (!breakTimerRunning && breakTimeRemaining > 0) {
+                        setBreakTimerRunning(true)
+                      }
+                    }}
+                  >
+                    <img
+                      src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
+                      alt={activity.name}
+                      className="break-activity-icon"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Brain Dump */}
           <div className={`brain-dump-section ${!showBrainDump ? 'hidden' : ''}`}>
             <div className="brain-dump-header">
@@ -3257,117 +3404,6 @@ function App() {
             )}
           </div>
 
-          {/* Break Activities */}
-          <div className={`break-activities-section ${!showBreakActivities ? 'hidden' : ''}`}>
-            <div className="break-activities-header">
-              <span className="break-activities-label">Break</span>
-            </div>
-
-            <div className="break-content">
-              <div className="break-left">
-                <div className={`break-timer-display ${breakTimerRunning ? 'running' : ''}`}>
-                  <input
-                    type="text"
-                    className="break-timer-field"
-                    value={Math.ceil(breakTimeRemaining / 60)}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
-                      setBreakTimeRemaining(Math.min(val, 90) * 60)
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    maxLength={2}
-                  />
-                  <button
-                    className="break-timer-unit"
-                    onClick={() => {
-                      setBreakTimerRunning(false)
-                      setBreakTimeRemaining(0)
-                    }}
-                    title="Reset timer"
-                  >
-                    <span className="break-timer-unit-text">min</span>
-                    <span className="break-timer-unit-reset">reset</span>
-                  </button>
-                </div>
-                <span className="break-timer-until">
-                  until {new Date(Date.now() + breakTimeRemaining * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                </span>
-                <div className="break-presets">
-                  {[1, 5].map(mins => (
-                    <button
-                      key={mins}
-                      className="break-preset-btn"
-                      onClick={() => {
-                        setBreakTimeRemaining(prev => Math.min(prev + mins * 60, 90 * 60))
-                      }}
-                    >+{mins}</button>
-                  ))}
-                  <button
-                    className="break-preset-btn break-snap-btn"
-                    onClick={() => {
-                      const now = new Date()
-                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
-                      const endHour = now.getHours() + Math.floor(endMin / 60)
-                      const endMinOfHour = endMin % 60
-                      const floored = Math.floor(endMinOfHour / 15) * 15
-                      const targetMin = floored === endMinOfHour ? endMinOfHour - 15 : floored
-                      const targetTotal = endHour * 60 + targetMin
-                      const nowTotal = now.getHours() * 60 + now.getMinutes()
-                      setBreakTimeRemaining(Math.max(0, targetTotal - nowTotal) * 60)
-                    }}
-                    title="Round down to previous quarter hour"
-                  >
-                    <ArrowBigLeftDash size={12} />
-                  </button>
-                  <button
-                    className="break-preset-btn break-snap-btn"
-                    onClick={() => {
-                      const now = new Date()
-                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
-                      const endHour = now.getHours() + Math.floor(endMin / 60)
-                      const endMinOfHour = endMin % 60
-                      const ceiled = Math.ceil(endMinOfHour / 15) * 15
-                      const targetMin = ceiled === endMinOfHour ? endMinOfHour + 15 : ceiled
-                      const targetTotal = endHour * 60 + targetMin
-                      const nowTotal = now.getHours() * 60 + now.getMinutes()
-                      setBreakTimeRemaining(Math.min((targetTotal - nowTotal) * 60, 90 * 60))
-                    }}
-                    title="Round up to next quarter hour"
-                  >
-                    <ArrowBigRightDash size={12} />
-                  </button>
-                </div>
-              </div>
-              <div className="break-activities-grid">
-                {[
-                  { file: 'icons8-meditation-64.png', name: 'Meditate' },
-                  { file: 'icons8-stretching-hamstring-64.png', name: 'Stretch a little' },
-                  { file: 'icons8-squats-64.png', name: 'Do some squats' },
-                  { file: 'icons8-strength-64.png', name: 'Strength training' },
-                  { file: 'icons8-spinning-64.png', name: 'Spin it out' },
-                  { file: 'icons8-walking-64.png', name: 'Go for a walk' },
-                  { file: 'icons8-water-64.png', name: 'Drink some water' },
-                  { file: 'icons8-eat-64.png', name: 'Time to eat' },
-                  { file: 'icons8-laundry-64.png', name: 'Do the laundry' },
-                  { file: 'icons8-trash-64.png', name: 'Take out the trash' },
-                  { file: 'icons8-dirty-dishes-64.png', name: 'Do some chores' },
-                  { file: 'icons8-potted-plant-64.png', name: 'Water the plants' },
-                ].map(activity => (
-                  <button
-                    key={activity.file}
-                    className="break-activity-btn"
-                    data-tooltip={activity.name}
-                  >
-                    <img
-                      src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
-                      alt={activity.name}
-                      className="break-activity-icon"
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
         </section>
       </main>
 
@@ -3873,6 +3909,43 @@ function App() {
       <audio ref={bellAudioRef} preload="auto">
         <source src={`${import.meta.env.BASE_URL}audio/notification-bell.mp3`} type="audio/mpeg" />
       </audio>
+
+      {/* Break Overlay */}
+      {activeBreak && (
+        <div className="break-overlay">
+          <button
+            className="break-overlay-close"
+            onClick={() => {
+              setActiveBreak(null)
+              setBreakTimerRunning(false)
+            }}
+          >&times;</button>
+          <div className="break-overlay-pane">
+            <div className="break-overlay-content">
+              <img
+                src={`${import.meta.env.BASE_URL}icons/${activeBreak.file}`}
+                alt={activeBreak.name}
+                className="break-overlay-icon"
+              />
+              {breakTimeRemaining > 0 ? (
+                <span className="break-overlay-text">
+                  Taking a {Math.ceil(breakTimeRemaining / 60)}-minute break to {activeBreak.name.toLowerCase()}, until {new Date(Date.now() + breakTimeRemaining * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}...
+                </span>
+              ) : (
+                <span className="break-overlay-text break-overlay-complete">
+                  Your {Math.round(activeBreak.totalTime / 60)}-minute break has been completed.
+                </span>
+              )}
+            </div>
+            <div className="break-overlay-progress">
+              <div
+                className="break-overlay-progress-bar"
+                style={{ width: `${activeBreak.totalTime > 0 ? ((activeBreak.totalTime - breakTimeRemaining) / activeBreak.totalTime) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
     </>
   )

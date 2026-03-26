@@ -2158,6 +2158,10 @@
     box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
+.break-activity-btn.dragging {
+    opacity: 0.4;
+}
+
 .break-activity-btn[data-tooltip]:hover::after {
     content: attr(data-tooltip);
     position: absolute;
@@ -2181,6 +2185,99 @@
     width: 32px;
     height: 32px;
     object-fit: contain;
+}
+
+/* ---- Break Overlay ---- */
+
+.break-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgb(0 0 0 / 60%);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: break-overlay-in 0.3s ease;
+}
+
+@keyframes break-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.break-overlay-close {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    background: none;
+    border: none;
+    color: rgb(255 255 255 / 60%);
+    font-size: 2rem;
+    cursor: pointer;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+}
+
+.break-overlay-close:hover {
+    color: #fff;
+    background: rgb(255 255 255 / 10%);
+}
+
+.break-overlay-pane {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1.5rem 2rem;
+    box-shadow: 0 8px 32px rgb(0 0 0 / 20%);
+}
+
+.break-overlay-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.break-overlay-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.break-overlay-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.25rem;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+}
+
+.break-overlay-complete {
+    background: var(--success-light);
+    border: 1px solid var(--success);
+    color: var(--success);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+}
+
+.break-overlay-progress {
+    height: 6px;
+    background: var(--paper-dark);
+    border-radius: 3px;
+    margin-top: 1rem;
+    overflow: hidden;
+}
+
+.break-overlay-progress-bar {
+    height: 100%;
+    background: var(--success);
+    border-radius: 3px;
+    min-width: 1px;
+    width: 0%;
+    transition: width 1s linear;
 }
 
 .kanban-card {
