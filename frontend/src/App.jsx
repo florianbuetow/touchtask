@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Maximize2, Menu, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Maximize2, Menu, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -156,6 +156,7 @@ const STORAGE_KEYS = {
   ENERGY_LEVELS: 'touchtask_energy_levels',
   ENERGY_AVERAGES: 'touchtask_energy_averages',
   POMODORO_TIMER: 'touchtask_pomodoro_timer',
+  BREAK_TIMER: 'touchtask_break_timer',
 }
 
 const getDefaultSettings = () => ({
@@ -709,6 +710,7 @@ function App() {
     return defaults
   })
   const timerRef = useRef(null)
+  const bellAudioRef = useRef(null)
   // Persist pomodoro state on every change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.POMODORO_TIMER, JSON.stringify({
@@ -788,6 +790,40 @@ function App() {
     } catch { return DEFAULT_FOCUS_ORDER }
   })
   const [showBrainDump, setShowBrainDump] = useState(true)
+  const [showBreakActivities, setShowBreakActivities] = useState(true)
+  const [breakTimeRemaining, setBreakTimeRemaining] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.BREAK_TIMER)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.running) {
+          const elapsed = Math.floor((Date.now() - parsed.savedAt) / 1000)
+          return Math.max(0, parsed.remaining - elapsed)
+        }
+        return parsed.remaining ?? 15 * 60
+      }
+    } catch { /* ignore */ }
+    return 15 * 60
+  })
+  const [breakTimerRunning, setBreakTimerRunning] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.BREAK_TIMER)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.running) {
+          const elapsed = Math.floor((Date.now() - parsed.savedAt) / 1000)
+          return parsed.remaining - elapsed > 0
+        }
+      }
+    } catch { /* ignore */ }
+    return false
+  })
+  const breakTimerRef = useRef(null)
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.BREAK_TIMER, JSON.stringify({
+      remaining: breakTimeRemaining, running: breakTimerRunning, savedAt: Date.now()
+    }))
+  }, [breakTimeRemaining, breakTimerRunning])
   const [brainDump, setBrainDump] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEYS.BRAIN_DUMP) || ''
@@ -2124,16 +2160,11 @@ function App() {
   const playNotification = useCallback(() => {
     if (!bellEnabled) return
     try {
-      const ctx = new AudioContext()
-      const osc = ctx.createOscillator()
-      const g = ctx.createGain()
-      osc.connect(g)
-      g.connect(ctx.destination)
-      osc.frequency.value = 800
-      g.gain.setValueAtTime(0.3, ctx.currentTime)
-      g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
-      osc.start()
-      osc.stop(ctx.currentTime + 0.5)
+      const audio = bellAudioRef.current
+      if (audio) {
+        audio.currentTime = 0
+        audio.play().catch(e => console.log('Autoplay blocked:', e))
+      }
     } catch (e) {
       console.error('Audio notification failed:', e)
     }
@@ -2363,6 +2394,30 @@ function App() {
       })
     }, 1000)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Break timer countdown
+  useEffect(() => {
+    if (breakTimerRunning && breakTimeRemaining > 0) {
+      breakTimerRef.current = setInterval(() => {
+        setBreakTimeRemaining(prev => {
+          if (prev <= 1) {
+            clearInterval(breakTimerRef.current)
+            breakTimerRef.current = null
+            setBreakTimerRunning(false)
+            playNotification()
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+    return () => {
+      if (breakTimerRef.current) {
+        clearInterval(breakTimerRef.current)
+        breakTimerRef.current = null
+      }
+    }
+  }, [breakTimerRunning, breakTimeRemaining, playNotification])
 
   // ============================================
   // DRAG AND DROP
@@ -2634,6 +2689,7 @@ function App() {
               <>
                 <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
                 <div className="menu-dropdown">
+                  <button className="menu-item" onClick={() => { setAboutModalOpen(true); setMenuOpen(false); }}>About</button>
                   <button className="menu-item" onClick={handleLoadClick}>Load</button>
                   <button className="menu-item" onClick={handleSaveData}>Save</button>
                   <button className="menu-item" onClick={handleDemoClick}>Demo</button>
@@ -2847,6 +2903,13 @@ function App() {
                   title={showBrainDump ? 'Hide brain dump' : 'Show brain dump'}
                 >
                   <NotebookPen size={14} />
+                </button>
+                <button
+                  className={`focus-toggle ${!showBreakActivities ? 'disabled' : ''}`}
+                  onClick={() => setShowBreakActivities(!showBreakActivities)}
+                  title={showBreakActivities ? 'Hide break activities' : 'Show break activities'}
+                >
+                  <Coffee size={14} />
                 </button>
               </div>
             </div>
@@ -3192,6 +3255,118 @@ function App() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Break Activities */}
+          <div className={`break-activities-section ${!showBreakActivities ? 'hidden' : ''}`}>
+            <div className="break-activities-header">
+              <span className="break-activities-label">Break</span>
+            </div>
+
+            <div className="break-content">
+              <div className="break-left">
+                <div className={`break-timer-display ${breakTimerRunning ? 'running' : ''}`}>
+                  <input
+                    type="text"
+                    className="break-timer-field"
+                    value={Math.ceil(breakTimeRemaining / 60)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
+                      setBreakTimeRemaining(Math.min(val, 90) * 60)
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    maxLength={2}
+                  />
+                  <button
+                    className="break-timer-unit"
+                    onClick={() => {
+                      setBreakTimerRunning(false)
+                      setBreakTimeRemaining(0)
+                    }}
+                    title="Reset timer"
+                  >
+                    <span className="break-timer-unit-text">min</span>
+                    <span className="break-timer-unit-reset">reset</span>
+                  </button>
+                </div>
+                <span className="break-timer-until">
+                  until {new Date(Date.now() + breakTimeRemaining * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </span>
+                <div className="break-presets">
+                  {[1, 5].map(mins => (
+                    <button
+                      key={mins}
+                      className="break-preset-btn"
+                      onClick={() => {
+                        setBreakTimeRemaining(prev => Math.min(prev + mins * 60, 90 * 60))
+                      }}
+                    >+{mins}</button>
+                  ))}
+                  <button
+                    className="break-preset-btn break-snap-btn"
+                    onClick={() => {
+                      const now = new Date()
+                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
+                      const endHour = now.getHours() + Math.floor(endMin / 60)
+                      const endMinOfHour = endMin % 60
+                      const floored = Math.floor(endMinOfHour / 15) * 15
+                      const targetMin = floored === endMinOfHour ? endMinOfHour - 15 : floored
+                      const targetTotal = endHour * 60 + targetMin
+                      const nowTotal = now.getHours() * 60 + now.getMinutes()
+                      setBreakTimeRemaining(Math.max(0, targetTotal - nowTotal) * 60)
+                    }}
+                    title="Round down to previous quarter hour"
+                  >
+                    <ArrowBigLeftDash size={12} />
+                  </button>
+                  <button
+                    className="break-preset-btn break-snap-btn"
+                    onClick={() => {
+                      const now = new Date()
+                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
+                      const endHour = now.getHours() + Math.floor(endMin / 60)
+                      const endMinOfHour = endMin % 60
+                      const ceiled = Math.ceil(endMinOfHour / 15) * 15
+                      const targetMin = ceiled === endMinOfHour ? endMinOfHour + 15 : ceiled
+                      const targetTotal = endHour * 60 + targetMin
+                      const nowTotal = now.getHours() * 60 + now.getMinutes()
+                      setBreakTimeRemaining(Math.min((targetTotal - nowTotal) * 60, 90 * 60))
+                    }}
+                    title="Round up to next quarter hour"
+                  >
+                    <ArrowBigRightDash size={12} />
+                  </button>
+                </div>
+              </div>
+              <div className="break-activities-grid">
+                {[
+                  { file: 'icons8-meditation-64.png', name: 'Meditate' },
+                  { file: 'icons8-stretching-hamstring-64.png', name: 'Stretch a little' },
+                  { file: 'icons8-squats-64.png', name: 'Do some squats' },
+                  { file: 'icons8-strength-64.png', name: 'Strength training' },
+                  { file: 'icons8-spinning-64.png', name: 'Spin it out' },
+                  { file: 'icons8-walking-64.png', name: 'Go for a walk' },
+                  { file: 'icons8-water-64.png', name: 'Drink some water' },
+                  { file: 'icons8-eat-64.png', name: 'Time to eat' },
+                  { file: 'icons8-laundry-64.png', name: 'Do the laundry' },
+                  { file: 'icons8-trash-64.png', name: 'Take out the trash' },
+                  { file: 'icons8-dirty-dishes-64.png', name: 'Do some chores' },
+                  { file: 'icons8-potted-plant-64.png', name: 'Water the plants' },
+                ].map(activity => (
+                  <button
+                    key={activity.file}
+                    className="break-activity-btn"
+                    data-tooltip={activity.name}
+                  >
+                    <img
+                      src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
+                      alt={activity.name}
+                      className="break-activity-icon"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -3694,6 +3869,10 @@ function App() {
         title="Delete Sticky Note"
         message="Are you sure you want to delete this sticky note?"
       />
+
+      <audio ref={bellAudioRef} preload="auto">
+        <source src={`${import.meta.env.BASE_URL}audio/notification-bell.mp3`} type="audio/mpeg" />
+      </audio>
 
     </>
   )
@@ -5616,10 +5795,27 @@ function AboutModal({ isOpen, onClose }) {
 
           <div className="about-author-line">
             by <a
-              href="https://github.com/florianbuetow/touchtask"
+              href="https://github.com/florianbuetow"
               target="_blank"
               rel="noopener noreferrer"
             >F Buetow</a>
+          </div>
+
+          <div className="about-links">
+            <a
+              href="https://github.com/florianbuetow/touchtask"
+              target="_blank"
+              rel="noopener noreferrer"
+            >View on GitHub</a>
+          </div>
+
+          <div className="about-copyright">
+            &copy; {new Date().getFullYear()} Florian Buetow. All rights reserved.
+          </div>
+
+          <div className="about-credits">
+            <span className="about-credits-label">Credits</span>
+            Activity icons by <a href="https://icons8.com" target="_blank" rel="noopener noreferrer">Icons8</a>
           </div>
         </div>
       </div>
