@@ -154,12 +154,13 @@ ci:
     cd frontend && npm run test
     @echo ""
     @printf "\033[0;34m=== LIGHTHOUSE (Performance) ===\033[0m\n"
-    cd frontend && npm run preview -- --port {{port}} & PID=$$! && \
+    lsof -ti :{{port}} | xargs kill 2>/dev/null || true
+    cd frontend && npm run preview -- --port {{port}} & PID=$! && \
     until curl -s http://localhost:{{port}}/touchtask/ > /dev/null; do :; done && \
     npx lighthouse http://localhost:{{port}}/touchtask/ --output=html --output=json --output-path=./reports/lighthouse --chrome-flags="--headless=new" --only-categories=performance,accessibility,best-practices,seo ; \
-    LHRESULT=$$? ; \
-    kill $$PID 2>/dev/null || true ; \
-    [ $$LHRESULT -eq 0 ] || (printf "\033[31m✗ lighthouse failed\033[0m\n" && exit 1)
+    LHRESULT=$? ; \
+    kill $PID 2>/dev/null || true ; \
+    [ $LHRESULT -eq 0 ] || (printf "\033[31m✗ lighthouse failed\033[0m\n" && exit 1)
     @node -e "\
     const d = require('./reports/lighthouse.report.json');\
     const s = c => Math.round(d.categories[c].score * 100);\

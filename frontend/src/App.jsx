@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Maximize2, Menu, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -158,6 +158,7 @@ const STORAGE_KEYS = {
   POMODORO_TIMER: 'touchtask_pomodoro_timer',
   BREAK_TIMER: 'touchtask_break_timer',
   BREAK_ACTIVITIES_ORDER: 'touchtask_break_activities_order',
+  PANE_VISIBILITY: 'touchtask_pane_visibility',
 }
 
 const getDefaultSettings = () => ({
@@ -746,10 +747,16 @@ function App() {
   const [dragSourceProjectId, setDragSourceProjectId] = useState(null)
 
   // Section visibility state
+  const savedPaneVisibility = useMemo(() => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PANE_VISIBILITY)
+      return data ? JSON.parse(data) : {}
+    } catch { return {} }
+  }, [])
   const [showReminders, setShowReminders] = useState(true)
-  const [showPomodoro, setShowPomodoro] = useState(true)
+  const [showPomodoro, setShowPomodoro] = useState(savedPaneVisibility.pomodoro !== false)
   const [showKanban, setShowKanban] = useState(true)
-  const [showMentalBandwidth, setShowMentalBandwidth] = useState(true)
+  const [showMentalBandwidth, setShowMentalBandwidth] = useState(savedPaneVisibility.mentalBandwidth !== false)
   const [energyLevels, setEnergyLevels] = useState(() => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.ENERGY_LEVELS)
@@ -766,8 +773,8 @@ function App() {
       return null
     } catch { return null }
   })
-  const [showFocusChecklist, setShowFocusChecklist] = useState(true)
-  const [showCurrentFocus, setShowCurrentFocus] = useState(true)
+  const [showFocusChecklist, setShowFocusChecklist] = useState(savedPaneVisibility.focusChecklist !== false)
+  const [showCurrentFocus, setShowCurrentFocus] = useState(savedPaneVisibility.currentFocus !== false)
   const [currentFocus, setCurrentFocus] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEYS.CURRENT_FOCUS) || ''
@@ -790,8 +797,20 @@ function App() {
       return DEFAULT_FOCUS_ORDER
     } catch { return DEFAULT_FOCUS_ORDER }
   })
-  const [showBrainDump, setShowBrainDump] = useState(true)
-  const [showBreakActivities, setShowBreakActivities] = useState(true)
+  const [showBrainDump, setShowBrainDump] = useState(savedPaneVisibility.brainDump !== false)
+  const [showBreakActivities, setShowBreakActivities] = useState(savedPaneVisibility.breakActivities !== false)
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PANE_VISIBILITY, JSON.stringify({
+      pomodoro: showPomodoro,
+      mentalBandwidth: showMentalBandwidth,
+      focusChecklist: showFocusChecklist,
+      currentFocus: showCurrentFocus,
+      brainDump: showBrainDump,
+      breakActivities: showBreakActivities,
+    }))
+  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities])
+
   const [breakTimeRemaining, setBreakTimeRemaining] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.BREAK_TIMER)
@@ -858,6 +877,7 @@ function App() {
   const brainDumpTextareaRef = useRef(null)
   const [brainDumpClearConfirmOpen, setBrainDumpClearConfirmOpen] = useState(false)
   const [brainDumpCopied, setBrainDumpCopied] = useState(false)
+  const [recordingModalOpen, setRecordingModalOpen] = useState(false)
   const [contextSwitchData, setContextSwitchData] = useState(() => {
     const defaults = { date: getTodayString(), interrupted: 0, switched: 0 }
     try {
@@ -3306,6 +3326,15 @@ function App() {
           <div className={`brain-dump-section ${!showBrainDump ? 'hidden' : ''}`}>
             <div className="brain-dump-header">
               <div className="brain-dump-quick">
+                {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
+                  <button
+                    className="brain-dump-mic-btn"
+                    onClick={() => setRecordingModalOpen(true)}
+                    title="Voice dump — speak your thoughts"
+                  >
+                    <MicVocal size={14} />
+                  </button>
+                )}
                 <input
                   type="text"
                   className="brain-dump-quick-input"
@@ -3331,8 +3360,8 @@ function App() {
                       setBrainDumpQuick('')
                     }
                   }}
-                  title="Dump anything that is on your mind and keeps you from focussing"
-                >Dump</button>
+                  title="Store anything that is on your mind and keeps you from focussing"
+                >Store</button>
               </div>
             </div>
             <textarea
@@ -3343,6 +3372,9 @@ function App() {
               onChange={(e) => {
                 const val = e.target.value
                 setBrainDump(val)
+                if (!val.trim() && brainDumpTextareaRef.current) {
+                  brainDumpTextareaRef.current.style.height = '150px'
+                }
                 clearTimeout(brainDumpTimerRef.current)
                 brainDumpTimerRef.current = setTimeout(() => {
                   localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, val)
@@ -3705,10 +3737,21 @@ function App() {
         onConfirm={() => {
           setBrainDump('')
           localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, '')
+          if (brainDumpTextareaRef.current) brainDumpTextareaRef.current.style.height = '150px'
           setBrainDumpClearConfirmOpen(false)
         }}
         title="Clear Brain Dump"
         message="Are you sure you want to clear the brain dump? This action cannot be undone."
+      />
+
+      {/* Brain Dump Voice Recording Modal */}
+      <RecordingModal
+        isOpen={recordingModalOpen}
+        onClose={() => setRecordingModalOpen(false)}
+        onDone={(text) => {
+          setBrainDumpQuick(text.trim())
+          setRecordingModalOpen(false)
+        }}
       />
 
       {/* Context Switch Clear Confirmation Modal */}
@@ -5747,6 +5790,187 @@ function AlertDialog({ isOpen, onClose, title, message }) {
         <div className="modal-footer">
           <div className="modal-footer-right">
             <button className="btn btn-primary" onClick={onClose} autoFocus>OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// RECORDING MODAL COMPONENT
+// ============================================
+
+function RecordingModal({ isOpen, onClose, onDone }) {
+  const [seconds, setSeconds] = useState(0)
+  const [error, setError] = useState(null)
+  const recognitionRef = useRef(null)
+  const intervalRef = useRef(null)
+  const transcriptRef = useRef('')
+  const errorRef = useRef(false)
+  const doneRef = useRef(false)
+  const onCloseRef = useRef(onClose)
+  const onDoneRef = useRef(onDone)
+  onCloseRef.current = onClose
+  onDoneRef.current = onDone
+
+  const handleCancel = useCallback(() => {
+    clearInterval(intervalRef.current)
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null
+      recognitionRef.current.abort()
+      recognitionRef.current = null
+    }
+    onCloseRef.current()
+  }, [])
+
+  const handleDone = useCallback(() => {
+    clearInterval(intervalRef.current)
+    doneRef.current = true
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+    } else {
+      const text = transcriptRef.current
+      if (text.trim()) {
+        onDoneRef.current(text)
+      } else {
+        onCloseRef.current()
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    setSeconds(0)
+    setError(null)
+    errorRef.current = false
+    doneRef.current = false
+    transcriptRef.current = ''
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setError('Speech recognition not supported in this browser.')
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = navigator.language || 'en-US'
+    recognitionRef.current = recognition
+
+    recognition.onresult = (event) => {
+      let finalTranscript = ''
+      let interimTranscript = ''
+      for (let i = 0; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript
+        if (event.results[i].isFinal) {
+          finalTranscript += text + ' '
+        } else {
+          interimTranscript += text
+        }
+      }
+      transcriptRef.current = (finalTranscript + interimTranscript).trim()
+    }
+
+    recognition.onerror = (event) => {
+      if (event.error === 'not-allowed') {
+        errorRef.current = true
+        setError('Microphone access denied.')
+      } else if (event.error !== 'aborted') {
+        errorRef.current = true
+        setError(`Recording error: ${event.error}`)
+      }
+    }
+
+    recognition.onend = () => {
+      if (doneRef.current) {
+        recognitionRef.current = null
+        const text = transcriptRef.current
+        if (text.trim()) {
+          onDoneRef.current(text)
+        } else {
+          onCloseRef.current()
+        }
+        return
+      }
+      // Browser may stop recognition on its own (e.g. silence timeout)
+      // If the modal is still open and no error, restart it
+      if (recognitionRef.current && !errorRef.current) {
+        try { recognitionRef.current.start() } catch { /* already started or stopped intentionally */ }
+      }
+    }
+
+    try {
+      recognition.start()
+    } catch {
+      setError('Could not start speech recognition.')
+      return
+    }
+
+    intervalRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        clearInterval(intervalRef.current)
+        if (recognitionRef.current) {
+          recognitionRef.current.onend = null
+          recognitionRef.current.abort()
+          recognitionRef.current = null
+        }
+        onCloseRef.current()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      clearInterval(intervalRef.current)
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null
+        recognitionRef.current.abort()
+        recognitionRef.current = null
+      }
+    }
+  }, [isOpen])
+
+  const formatTime = (totalSeconds) => {
+    const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
+    const s = String(totalSeconds % 60).padStart(2, '0')
+    return `${m}:${s}`
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={handleCancel}>
+      <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Speech to Text</h3>
+          <button className="modal-close" onClick={handleCancel}>&times;</button>
+        </div>
+
+        <div className="modal-body recording-body">
+          {error ? (
+            <div className="recording-error">{error}</div>
+          ) : (
+            <>
+              <div className="recording-indicator">
+                <div className="recording-pulse" />
+              </div>
+              <div className="recording-timer">{formatTime(seconds)}</div>
+              <div className="recording-hint">Recording in progress...</div>
+            </>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-danger" onClick={handleCancel}>Cancel</button>
+          <div className="modal-footer-right">
+            {!error && (
+              <button className="btn btn-primary" onClick={handleDone}>Done</button>
+            )}
           </div>
         </div>
       </div>

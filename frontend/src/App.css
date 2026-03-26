@@ -969,8 +969,8 @@
 }
 
 .btn-primary:hover {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--success);
+    border-color: var(--success);
 }
 
 /* Kanban & Pomodoro styles */
@@ -1837,8 +1837,8 @@
 }
 
 .timer-btn.primary:hover {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--success);
+    border-color: var(--success);
 }
 
 .timer-btn.running {
@@ -1857,6 +1857,12 @@
     padding: 0.4rem 0.75rem;
     font-size: 0.55rem;
     border-width: 1px;
+}
+
+.timer-btn.small:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--paper);
 }
 
 .brain-dump-section {
@@ -1915,8 +1921,8 @@
 }
 
 .brain-dump-quick-btn:hover {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--success);
+    border-color: var(--success);
 }
 
 .brain-dump-section textarea {
@@ -1984,6 +1990,90 @@
     color: var(--accent);
 }
 
+/* ---- Brain Dump Mic Button ---- */
+
+.brain-dump-mic-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.6rem;
+    min-width: 36px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.brain-dump-mic-btn:hover {
+    background: var(--success);
+    border-color: var(--success);
+    color: var(--paper);
+}
+
+/* ---- Recording Modal ---- */
+
+.recording-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem 1.25rem;
+}
+
+.recording-indicator {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.recording-pulse {
+    width: 24px;
+    height: 24px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: recording-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgb(196 30 58 / 40%);
+        transform: scale(1);
+    }
+
+    50% {
+        box-shadow: 0 0 0 18px rgb(196 30 58 / 0%);
+        transform: scale(1.15);
+    }
+}
+
+.recording-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.05em;
+}
+
+.recording-hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.recording-error {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-align: center;
+    padding: 1rem 0;
+}
+
 /* ---- Break Activities ---- */
 
 .break-activities-section {
@@ -2039,11 +2129,11 @@
 }
 
 .break-timer-display.running .break-timer-field {
-    color: var(--success);
+    color: var(--ink);
 }
 
 .break-timer-display.running .break-timer-unit {
-    color: var(--success);
+    color: var(--ink);
 }
 
 .break-timer-until {
