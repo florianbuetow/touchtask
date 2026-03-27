@@ -670,12 +670,22 @@ function App() {
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Pomodoro state
-  const [presets, setPresets] = useState([
-    { work: 10, break: 20 },
-    { work: 25, break: 5 },
-    { work: 50, break: 10 },
-    { work: 90, break: 15 }
-  ])
+  const [presets, setPresets] = useState(() => {
+    const defaults = [
+      { work: 10, break: 20 },
+      { work: 25, break: 5 },
+      { work: 50, break: 10 },
+      { work: 90, break: 15 }
+    ]
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.POMODORO_PRESETS)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length === 4) return parsed
+      }
+    } catch { /* ignore */ }
+    return defaults
+  })
   const [activePresetIndex, setActivePresetIndex] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.POMODORO_TIMER)
@@ -714,15 +724,54 @@ function App() {
     } catch { /* ignore */ }
     return defaults
   })
-  const timerRef = useRef(null)
   const bellAudioRef = useRef(null)
   const playNotificationRef = useRef(null)
+  const timerWorkerRef = useRef(null)
+  const workerHandlerRef = useRef(null)
+  const pomodoroResumedRef = useRef(false)
+
+  // Timer Web Worker — runs on a separate thread, NOT throttled in background tabs
+  useEffect(() => {
+    const code = `
+      const timers = {};
+      self.onmessage = function(e) {
+        const { type, id, duration } = e.data;
+        if (type === 'START') {
+          if (timers[id]) clearInterval(timers[id]);
+          const target = Date.now() + duration;
+          timers[id] = setInterval(function() {
+            var remaining = Math.max(0, Math.round((target - Date.now()) / 1000));
+            if (remaining <= 0) {
+              clearInterval(timers[id]);
+              delete timers[id];
+              self.postMessage({ type: 'EXPIRED', id: id });
+            } else {
+              self.postMessage({ type: 'TICK', id: id, remaining: remaining });
+            }
+          }, 500);
+        } else if (type === 'STOP') {
+          if (timers[id]) { clearInterval(timers[id]); delete timers[id]; }
+        }
+      };
+    `;
+    const blob = new Blob([code], { type: 'application/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
+    worker.onmessage = (e) => workerHandlerRef.current?.(e.data);
+    timerWorkerRef.current = worker;
+    return () => worker.terminate();
+  }, [])
+
   // Persist pomodoro state on every change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.POMODORO_TIMER, JSON.stringify({
       ...timerState, activePresetIndex, bellEnabled, savedAt: Date.now()
     }))
   }, [timerState, activePresetIndex, bellEnabled])
+
+  // Persist pomodoro presets on change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.POMODORO_PRESETS, JSON.stringify(presets))
+  }, [presets])
 
   // Modal state
   const [blockModalOpen, setBlockModalOpen] = useState(false)
@@ -842,7 +891,6 @@ function App() {
     } catch { /* ignore */ }
     return false
   })
-  const breakTimerRef = useRef(null)
   const [activeBreak, setActiveBreak] = useState(null) // { file, name, totalTime }
   const defaultBreakActivities = [
     { file: 'icons8-meditation-64.png', name: 'Meditate' },
@@ -1815,7 +1863,8 @@ function App() {
     setEnergyAverages(demoAverages)
 
     // Reset pomodoro timer
-    clearInterval(timerRef.current)
+    timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'pomodoro' })
+    timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'break' })
     const defaultTimer = { isRunning: false, isBreak: false, timeRemaining: presets[1].work * 60, totalTime: presets[1].work * 60, activeTaskId: null, elapsedWhileRunning: 0 }
     setTimerState(defaultTimer)
     setActivePresetIndex(1)
@@ -2255,7 +2304,7 @@ function App() {
 
   const selectPreset = (index) => {
     setActivePresetIndex(index)
-    if (timerRef.current) clearInterval(timerRef.current)
+    timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'pomodoro' })
     setTimerState(prev => ({
       ...prev,
       timeRemaining: presets[index].work * 60,
@@ -2265,8 +2314,13 @@ function App() {
     }))
   }
 
-  const playNotification = useCallback(() => {
+  const lastSoundPlayedRef = useRef(0)
+  const playNotification = useCallback((force = false) => {
     if (!bellEnabled) return
+    // Prevent duplicate sounds within 3 seconds (e.g. from setTimeout + visibilitychange)
+    const now = Date.now()
+    if (!force && now - lastSoundPlayedRef.current < 3000) return
+    lastSoundPlayedRef.current = now
     try {
       const audio = bellAudioRef.current
       if (audio) {
@@ -2290,23 +2344,7 @@ function App() {
       totalTime: breakTime,
       elapsedWhileRunning: 0
     }))
-
-    timerRef.current = setInterval(() => {
-      setTimerState(prev => {
-        if (prev.timeRemaining <= 1) {
-          clearInterval(timerRef.current)
-          setTimeout(() => playNotificationRef.current?.(), 0)
-          return {
-            ...prev,
-            isRunning: false,
-            isBreak: false,
-            timeRemaining: presets[activePresetIndex].work * 60,
-            totalTime: presets[activePresetIndex].work * 60
-          }
-        }
-        return { ...prev, timeRemaining: prev.timeRemaining - 1 }
-      })
-    }, 1000)
+    timerWorkerRef.current?.postMessage({ type: 'START', id: 'pomodoro', duration: breakTime * 1000 })
   }, [activePresetIndex, presets])
 
   const [focusTooltip, setFocusTooltip] = useState({ text: '', type: '', visible: false, x: 0, y: 0 })
@@ -2379,7 +2417,7 @@ function App() {
   const toggleTimer = useCallback(() => {
     if (timerState.isBreak) {
       // Skip break
-      clearInterval(timerRef.current)
+      timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'pomodoro' })
       setTimerState(prev => ({
         ...prev,
         isRunning: false,
@@ -2397,44 +2435,17 @@ function App() {
 
     if (timerState.isRunning) {
       // Stop timer
-      clearInterval(timerRef.current)
+      timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'pomodoro' })
       setTimerState(prev => ({ ...prev, isRunning: false }))
     } else {
       // Start timer
       setTimerState(prev => ({ ...prev, isRunning: true }))
-
-      timerRef.current = setInterval(() => {
-        setTimerState(prev => {
-          const newElapsed = prev.elapsedWhileRunning + 1
-
-          // Increment task time every 60 seconds
-          if (newElapsed % 60 === 0 && prev.activeTaskId) {
-            incrementTaskTime(prev.activeTaskId, 1)
-          }
-
-          if (prev.timeRemaining <= 1) {
-            clearInterval(timerRef.current)
-            setTimeout(() => playNotificationRef.current?.(), 0)
-            startBreakMode()
-            return {
-              ...prev,
-              timeRemaining: 0,
-              elapsedWhileRunning: newElapsed
-            }
-          }
-
-          return {
-            ...prev,
-            timeRemaining: prev.timeRemaining - 1,
-            elapsedWhileRunning: newElapsed
-          }
-        })
-      }, 1000)
+      timerWorkerRef.current?.postMessage({ type: 'START', id: 'pomodoro', duration: timerState.timeRemaining * 1000 })
     }
-  }, [timerState.isBreak, timerState.activeTaskId, timerState.isRunning, activePresetIndex, presets, startBreakMode, incrementTaskTime])
+  }, [timerState.isBreak, timerState.activeTaskId, timerState.isRunning, timerState.timeRemaining, activePresetIndex, presets])
 
   const resetTimer = () => {
-    clearInterval(timerRef.current)
+    timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'pomodoro' })
     setTimerState(prev => ({
       ...prev,
       isRunning: false,
@@ -2446,9 +2457,7 @@ function App() {
   }
 
   const setActiveTask = (taskId) => {
-    if (timerState.isRunning) {
-      clearInterval(timerRef.current)
-    }
+    timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'pomodoro' })
     setTimerState(prev => ({
       ...prev,
       activeTaskId: taskId,
@@ -2461,9 +2470,7 @@ function App() {
   }
 
   const clearActiveTask = () => {
-    if (timerState.isRunning) {
-      clearInterval(timerRef.current)
-    }
+    timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'pomodoro' })
     setTimerState(prev => ({
       ...prev,
       activeTaskId: null,
@@ -2475,10 +2482,55 @@ function App() {
     }))
   }
 
-  // Resume timer interval on page reload if it was running
+  // Worker message handler — updated every render via ref so closures are always current
+  workerHandlerRef.current = ({ type, id, remaining }) => {
+    if (id === 'pomodoro') {
+      if (type === 'TICK') {
+        setTimerState(prev => {
+          if (!prev.isRunning) return prev
+          // Track task time every 60 seconds
+          if (!prev.isBreak && prev.activeTaskId) {
+            const prevElapsed = Math.floor((prev.totalTime - prev.timeRemaining) / 60)
+            const newElapsed = Math.floor((prev.totalTime - remaining) / 60)
+            if (newElapsed > prevElapsed) {
+              const minutes = newElapsed - prevElapsed
+              setTimeout(() => incrementTaskTime(prev.activeTaskId, minutes), 0)
+            }
+          }
+          return { ...prev, timeRemaining: remaining, elapsedWhileRunning: prev.totalTime - remaining }
+        })
+      } else if (type === 'EXPIRED') {
+        playNotificationRef.current?.()
+        let wasBreak = false
+        setTimerState(prev => {
+          wasBreak = prev.isBreak
+          if (prev.isBreak) {
+            return { ...prev, isRunning: false, isBreak: false, timeRemaining: presets[activePresetIndex].work * 60, totalTime: presets[activePresetIndex].work * 60, elapsedWhileRunning: 0 }
+          }
+          return { ...prev, timeRemaining: 0 }
+        })
+        if (!wasBreak) {
+          startBreakMode()
+        }
+      }
+    } else if (id === 'break') {
+      if (type === 'TICK') {
+        setBreakTimeRemaining(remaining)
+      } else if (type === 'EXPIRED') {
+        playNotificationRef.current?.()
+        setBreakTimeRemaining(0)
+        setBreakTimerRunning(false)
+      }
+    }
+  }
+
+  // Resume Pomodoro timer on page reload if it was running
   useEffect(() => {
-    if (!timerState.isRunning || timerRef.current) return
+    if (!timerState.isRunning || pomodoroResumedRef.current) return
+    pomodoroResumedRef.current = true
     if (timerState.timeRemaining <= 0) {
+      // Timer expired while page was closed — play sound
+      setTimeout(() => playNotificationRef.current?.(), 0)
       if (timerState.isBreak) {
         setTimerState(prev => ({ ...prev, isRunning: false, isBreak: false, timeRemaining: presets[activePresetIndex].work * 60, totalTime: presets[activePresetIndex].work * 60 }))
       } else {
@@ -2486,51 +2538,31 @@ function App() {
       }
       return
     }
-    timerRef.current = setInterval(() => {
-      setTimerState(prev => {
-        const newElapsed = prev.elapsedWhileRunning + 1
-        if (newElapsed % 60 === 0 && prev.activeTaskId) incrementTaskTime(prev.activeTaskId, 1)
-        if (prev.timeRemaining <= 1) {
-          clearInterval(timerRef.current)
-          timerRef.current = null
-          setTimeout(() => playNotificationRef.current?.(), 0)
-          if (prev.isBreak) {
-            return { ...prev, isRunning: false, isBreak: false, timeRemaining: presets[activePresetIndex].work * 60, totalTime: presets[activePresetIndex].work * 60 }
-          }
-          startBreakMode()
-          return { ...prev, timeRemaining: 0, elapsedWhileRunning: newElapsed }
-        }
-        return { ...prev, timeRemaining: prev.timeRemaining - 1, elapsedWhileRunning: newElapsed }
-      })
-    }, 1000)
+    // Start Worker timer for remaining time
+    timerWorkerRef.current?.postMessage({ type: 'START', id: 'pomodoro', duration: timerState.timeRemaining * 1000 })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Break timer countdown with completion handling
+  // Resume break timer on page reload if it was running
   useEffect(() => {
-    if (!breakTimerRunning) return
-    breakTimerRef.current = setInterval(() => {
-      let justCompleted = false
-      setBreakTimeRemaining(prev => {
-        if (prev <= 1) {
-          justCompleted = true
-          return 0
-        }
-        return prev - 1
-      })
-      if (justCompleted) {
-        clearInterval(breakTimerRef.current)
-        breakTimerRef.current = null
+    if (!breakTimerRunning || breakTimeRemaining <= 0) {
+      if (breakTimerRunning && breakTimeRemaining <= 0) {
+        // Break expired while page was closed — play sound
+        setTimeout(() => playNotificationRef.current?.(), 500)
         setBreakTimerRunning(false)
-        setTimeout(() => playNotificationRef.current?.(), 0)
       }
-    }, 1000)
-    return () => {
-      if (breakTimerRef.current) {
-        clearInterval(breakTimerRef.current)
-        breakTimerRef.current = null
-      }
+      return
     }
-  }, [breakTimerRunning])
+    timerWorkerRef.current?.postMessage({ type: 'START', id: 'break', duration: breakTimeRemaining * 1000 })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Start/stop break Worker timer when breakTimerRunning changes
+  useEffect(() => {
+    if (breakTimerRunning && breakTimeRemaining > 0) {
+      timerWorkerRef.current?.postMessage({ type: 'START', id: 'break', duration: breakTimeRemaining * 1000 })
+    } else if (!breakTimerRunning) {
+      timerWorkerRef.current?.postMessage({ type: 'STOP', id: 'break' })
+    }
+  }, [breakTimerRunning]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ============================================
   // DRAG AND DROP
@@ -3387,6 +3419,10 @@ function App() {
                         localStorage.setItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER, JSON.stringify(breakActivities))
                       }}
                       onClick={() => {
+                        if (timerState.isRunning && !timerState.isBreak) {
+                          showAlert('Pomodoro Running', 'Stop the current Pomodoro before starting a break.')
+                          return
+                        }
                         setActiveBreak({ file: activity.file, name: tooltip, totalTime: breakTimeRemaining })
                         if (!breakTimerRunning && breakTimeRemaining > 0) {
                           setBreakTimerRunning(true)
@@ -3893,7 +3929,7 @@ function App() {
         onClose={() => setSettingsModalOpen(false)}
         settings={settings}
         onSave={updateSettings}
-        onTestSound={playNotification}
+        onTestSound={() => playNotification(true)}
         defaultBreakActivities={defaultBreakActivities}
         breakActivitySettings={breakActivitySettings}
         onBreakActivitySettingsChange={updateBreakActivitySettings}
