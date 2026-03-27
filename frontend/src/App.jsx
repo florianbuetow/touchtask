@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -158,12 +158,15 @@ const STORAGE_KEYS = {
   POMODORO_TIMER: 'touchtask_pomodoro_timer',
   BREAK_TIMER: 'touchtask_break_timer',
   BREAK_ACTIVITIES_ORDER: 'touchtask_break_activities_order',
+  BREAK_HIDDEN_ACTIVITIES: 'touchtask_break_hidden_activities',
+  BREAK_ACTIVITY_SETTINGS: 'touchtask_break_activity_settings',
   PANE_VISIBILITY: 'touchtask_pane_visibility',
 }
 
 const getDefaultSettings = () => ({
   dayStartsAt: '00:00',
-  use24HourFormat: true
+  use24HourFormat: true,
+  notificationVolume: 0.5
 })
 
 const loadSettings = () => {
@@ -713,6 +716,7 @@ function App() {
   })
   const timerRef = useRef(null)
   const bellAudioRef = useRef(null)
+  const playNotificationRef = useRef(null)
   // Persist pomodoro state on every change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.POMODORO_TIMER, JSON.stringify({
@@ -842,25 +846,82 @@ function App() {
   const [activeBreak, setActiveBreak] = useState(null) // { file, name, totalTime }
   const defaultBreakActivities = [
     { file: 'icons8-meditation-64.png', name: 'Meditate' },
+    { file: 'icons8-breath-64.png', name: 'Breathing exercise' },
+    { file: 'icons8-yoga-64.png', name: 'Do some yoga' },
     { file: 'icons8-stretching-hamstring-64.png', name: 'Stretch a little' },
+    { file: 'icons8-pilates-64.png', name: 'Do pilates' },
+    { file: 'icons8-plank-64.png', name: 'Hold a plank' },
     { file: 'icons8-squats-64.png', name: 'Do some squats' },
-    { file: 'icons8-strength-64.png', name: 'Strength training' },
-    { file: 'icons8-spinning-64.png', name: 'Spin it out' },
+    { file: 'icons8-pushups-64.png', name: 'Do push-ups' },
+    { file: 'icons8-pullups-64.png', name: 'Do pull-ups' },
+    { file: 'icons8-strength-64.png', name: 'Lift weights' },
+    { file: 'icons8-skipping-rope-64.png', name: 'Jump rope' },
+    { file: 'icons8-spinning-64.png', name: 'Cycle a bit' },
+    { file: 'icons8-running-64.png', name: 'Go for a run' },
+    { file: 'icons8-treadmill-64.png', name: 'Hit the treadmill' },
+    { file: 'icons8-stairs-64.png', name: 'Walk up some stairs' },
+    { file: 'icons8-basketball-player-64.png', name: 'Play basketball' },
     { file: 'icons8-walking-64.png', name: 'Go for a walk' },
     { file: 'icons8-water-64.png', name: 'Drink some water' },
+    { file: 'icons8-hot-drink-64.png', name: 'Have a hot drink' },
     { file: 'icons8-eat-64.png', name: 'Time to eat' },
+    { file: 'icons8-shower-64.png', name: 'Take a shower' },
+    { file: 'icons8-sauna-64.png', name: 'Sauna time' },
+    { file: 'icons8-eye-64.png', name: 'Stare at a wall' },
+    { file: 'icons8-open-window-64.png', name: 'Open a window' },
+    { file: 'icons8-smelling-64.png', name: 'Smell the roses' },
+    { file: 'icons8-thinking-bubble-64.png', name: 'Take a step back' },
+    { file: 'icons8-sitting-on-chair-64.png', name: 'Mindfulness' },
+    { file: 'icons8-cat-64.png', name: 'Pet the cat' },
+    { file: 'icons8-dog-64.png', name: 'Walk the dog' },
     { file: 'icons8-laundry-64.png', name: 'Do the laundry' },
     { file: 'icons8-trash-64.png', name: 'Take out the trash' },
-    { file: 'icons8-dirty-dishes-64.png', name: 'Do some chores' },
+    { file: 'icons8-dirty-dishes-64.png', name: 'Do the dishes' },
+    { file: 'icons8-housekeeping-64.png', name: 'Tidy up' },
     { file: 'icons8-potted-plant-64.png', name: 'Water the plants' },
+    { file: 'icons8-push-64.png', name: 'Isometric exercise' },
+    { file: 'icons8-unicorn-64.png', name: 'Dream a little' },
+    { file: 'icons8-draw-64.png', name: 'Doodle a little' },
+    { file: 'icons8-paper-plane-64.png', name: 'Build a paper plane' },
+    { file: 'icons8-relax-64.png', name: 'Just relax' },
+    { file: 'icons8-love-letter-64.png', name: 'Write a kind note' },
   ]
   const [breakActivities, setBreakActivities] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER)
-      if (saved) return JSON.parse(saved)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        const savedFiles = new Set(parsed.map(a => a.file))
+        const newActivities = defaultBreakActivities.filter(a => !savedFiles.has(a.file))
+        if (newActivities.length > 0) return [...parsed, ...newActivities]
+        return parsed
+      }
     } catch { /* ignore */ }
     return defaultBreakActivities
   })
+  const [hiddenBreakActivities, setHiddenBreakActivities] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.BREAK_HIDDEN_ACTIVITIES)
+      if (saved) return new Set(JSON.parse(saved))
+    } catch { /* ignore */ }
+    return new Set()
+  })
+  const [breakActivitySettings, setBreakActivitySettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.BREAK_ACTIVITY_SETTINGS)
+      if (saved) return JSON.parse(saved)
+    } catch { /* ignore */ }
+    return {}
+  })
+  const getBreakTooltip = (activity) => {
+    const custom = breakActivitySettings[activity.file]?.tooltip
+    return custom || defaultBreakActivities.find(a => a.file === activity.file)?.name || activity.name
+  }
+  const isBreakActivityEnabled = (file) => breakActivitySettings[file]?.enabled !== false
+  const updateBreakActivitySettings = (newSettings) => {
+    setBreakActivitySettings(newSettings)
+    localStorage.setItem(STORAGE_KEYS.BREAK_ACTIVITY_SETTINGS, JSON.stringify(newSettings))
+  }
   const [draggedBreakIdx, setDraggedBreakIdx] = useState(null)
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.BREAK_TIMER, JSON.stringify({
@@ -1081,7 +1142,8 @@ function App() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [showStickyNotes, editingNoteId, stickyNotes.length, habitDrawerOpen, secondDrawerOpen, whiteboardDrawerOpen])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showStickyNotes, editingNoteId, stickyNotes, habitDrawerOpen, secondDrawerOpen, whiteboardDrawerOpen])
 
   // Adjust sticky note positions on resize when visible
   useEffect(() => {
@@ -1818,7 +1880,7 @@ function App() {
   // STICKY NOTES HANDLERS
   // ============================================
 
-  const addStickyNote = (x, y) => {
+  const addStickyNote = useCallback((x, y) => {
     const newNote = {
       id: generateId(),
       title: '',
@@ -1827,13 +1889,15 @@ function App() {
       y,
       createdAt: new Date().toISOString()
     }
-    const updated = [...stickyNotes, newNote]
-    setStickyNotes(updated)
-    saveStickyNotes(updated)
+    setStickyNotes(prev => {
+      const updated = [...prev, newNote]
+      saveStickyNotes(updated)
+      return updated
+    })
     setEditingNoteId(newNote.id)
     setTopNoteId(newNote.id)
     return newNote
-  }
+  }, [])
 
   const updateStickyNote = (id, changes, skipSave) => {
     const updated = stickyNotes.map(n => n.id === id ? { ...n, ...changes } : n)
@@ -2206,13 +2270,15 @@ function App() {
     try {
       const audio = bellAudioRef.current
       if (audio) {
+        audio.volume = settings?.notificationVolume ?? 0.5
         audio.currentTime = 0
         audio.play().catch(e => console.log('Autoplay blocked:', e))
       }
     } catch (e) {
       console.error('Audio notification failed:', e)
     }
-  }, [bellEnabled])
+  }, [bellEnabled, settings?.notificationVolume])
+  playNotificationRef.current = playNotification
 
   const startBreakMode = useCallback(() => {
     const breakTime = presets[activePresetIndex].break * 60
@@ -2229,7 +2295,7 @@ function App() {
       setTimerState(prev => {
         if (prev.timeRemaining <= 1) {
           clearInterval(timerRef.current)
-          playNotification()
+          setTimeout(() => playNotificationRef.current?.(), 0)
           return {
             ...prev,
             isRunning: false,
@@ -2241,7 +2307,7 @@ function App() {
         return { ...prev, timeRemaining: prev.timeRemaining - 1 }
       })
     }, 1000)
-  }, [activePresetIndex, presets, playNotification])
+  }, [activePresetIndex, presets])
 
   const [focusTooltip, setFocusTooltip] = useState({ text: '', type: '', visible: false, x: 0, y: 0 })
   const focusTooltipTimer = useRef(null)
@@ -2348,7 +2414,7 @@ function App() {
 
           if (prev.timeRemaining <= 1) {
             clearInterval(timerRef.current)
-            playNotification()
+            setTimeout(() => playNotificationRef.current?.(), 0)
             startBreakMode()
             return {
               ...prev,
@@ -2365,7 +2431,7 @@ function App() {
         })
       }, 1000)
     }
-  }, [timerState.isBreak, timerState.activeTaskId, timerState.isRunning, activePresetIndex, presets, playNotification, startBreakMode, incrementTaskTime])
+  }, [timerState.isBreak, timerState.activeTaskId, timerState.isRunning, activePresetIndex, presets, startBreakMode, incrementTaskTime])
 
   const resetTimer = () => {
     clearInterval(timerRef.current)
@@ -2427,7 +2493,7 @@ function App() {
         if (prev.timeRemaining <= 1) {
           clearInterval(timerRef.current)
           timerRef.current = null
-          playNotification()
+          setTimeout(() => playNotificationRef.current?.(), 0)
           if (prev.isBreak) {
             return { ...prev, isRunning: false, isBreak: false, timeRemaining: presets[activePresetIndex].work * 60, totalTime: presets[activePresetIndex].work * 60 }
           }
@@ -2439,29 +2505,32 @@ function App() {
     }, 1000)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Break timer countdown
+  // Break timer countdown with completion handling
   useEffect(() => {
-    if (breakTimerRunning && breakTimeRemaining > 0) {
-      breakTimerRef.current = setInterval(() => {
-        setBreakTimeRemaining(prev => {
-          if (prev <= 1) {
-            clearInterval(breakTimerRef.current)
-            breakTimerRef.current = null
-            setBreakTimerRunning(false)
-            playNotification()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    }
+    if (!breakTimerRunning) return
+    breakTimerRef.current = setInterval(() => {
+      let justCompleted = false
+      setBreakTimeRemaining(prev => {
+        if (prev <= 1) {
+          justCompleted = true
+          return 0
+        }
+        return prev - 1
+      })
+      if (justCompleted) {
+        clearInterval(breakTimerRef.current)
+        breakTimerRef.current = null
+        setBreakTimerRunning(false)
+        setTimeout(() => playNotificationRef.current?.(), 0)
+      }
+    }, 1000)
     return () => {
       if (breakTimerRef.current) {
         clearInterval(breakTimerRef.current)
         breakTimerRef.current = null
       }
     }
-  }, [breakTimerRunning, breakTimeRemaining, playNotification])
+  }, [breakTimerRunning])
 
   // ============================================
   // DRAG AND DROP
@@ -3203,6 +3272,15 @@ function App() {
           <div className={`break-activities-section ${!showBreakActivities ? 'hidden' : ''}`}>
             <div className="break-activities-header">
               <span className="break-activities-label">Break</span>
+              <button
+                className="break-activities-reset"
+                onClick={() => {
+                  setHiddenBreakActivities(new Set())
+                  localStorage.setItem(STORAGE_KEYS.BREAK_HIDDEN_ACTIVITIES, JSON.stringify([]))
+                }}
+                title="Restore hidden activities"
+                disabled={hiddenBreakActivities.size === 0}
+              ><Trash2 size={14} /></button>
             </div>
 
             <div className="break-content">
@@ -3281,43 +3359,59 @@ function App() {
                 </div>
               </div>
               <div className="break-activities-grid">
-                {breakActivities.map((activity, idx) => (
-                  <button
-                    key={activity.file}
-                    className={`break-activity-btn ${draggedBreakIdx === idx ? 'dragging' : ''}`}
-                    data-tooltip={activity.name}
-                    draggable
-                    onDragStart={(e) => {
-                      setDraggedBreakIdx(idx)
-                      e.dataTransfer.effectAllowed = 'move'
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      if (draggedBreakIdx === null || draggedBreakIdx === idx) return
-                      const updated = [...breakActivities]
-                      const [moved] = updated.splice(draggedBreakIdx, 1)
-                      updated.splice(idx, 0, moved)
-                      setBreakActivities(updated)
-                      setDraggedBreakIdx(idx)
-                    }}
-                    onDragEnd={() => {
-                      setDraggedBreakIdx(null)
-                      localStorage.setItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER, JSON.stringify(breakActivities))
-                    }}
-                    onClick={() => {
-                      setActiveBreak({ ...activity, totalTime: breakTimeRemaining })
-                      if (!breakTimerRunning && breakTimeRemaining > 0) {
-                        setBreakTimerRunning(true)
-                      }
-                    }}
-                  >
-                    <img
-                      src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
-                      alt={activity.name}
-                      className="break-activity-icon"
-                    />
-                  </button>
-                ))}
+                {breakActivities.map((activity, idx) => {
+                  if (!isBreakActivityEnabled(activity.file)) return null
+                  if (hiddenBreakActivities.has(activity.file)) return null
+                  const tooltip = getBreakTooltip(activity)
+                  return (
+                    <button
+                      key={activity.file}
+                      className={`break-activity-btn ${draggedBreakIdx === idx ? 'dragging' : ''}`}
+                      data-tooltip={tooltip}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedBreakIdx(idx)
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        if (draggedBreakIdx === null || draggedBreakIdx === idx) return
+                        const updated = [...breakActivities]
+                        const [moved] = updated.splice(draggedBreakIdx, 1)
+                        updated.splice(idx, 0, moved)
+                        setBreakActivities(updated)
+                        setDraggedBreakIdx(idx)
+                      }}
+                      onDragEnd={() => {
+                        setDraggedBreakIdx(null)
+                        localStorage.setItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER, JSON.stringify(breakActivities))
+                      }}
+                      onClick={() => {
+                        setActiveBreak({ file: activity.file, name: tooltip, totalTime: breakTimeRemaining })
+                        if (!breakTimerRunning && breakTimeRemaining > 0) {
+                          setBreakTimerRunning(true)
+                        }
+                      }}
+                    >
+                      <span
+                        className="break-activity-remove"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const updated = new Set(hiddenBreakActivities)
+                          updated.add(activity.file)
+                          setHiddenBreakActivities(updated)
+                          localStorage.setItem(STORAGE_KEYS.BREAK_HIDDEN_ACTIVITIES, JSON.stringify([...updated]))
+                        }}
+                        title={`Hide ${tooltip}`}
+                      ><X size={10} strokeWidth={3} /></span>
+                      <img
+                        src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
+                        alt={activity.name}
+                        className="break-activity-icon"
+                      />
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -3799,6 +3893,10 @@ function App() {
         onClose={() => setSettingsModalOpen(false)}
         settings={settings}
         onSave={updateSettings}
+        onTestSound={playNotification}
+        defaultBreakActivities={defaultBreakActivities}
+        breakActivitySettings={breakActivitySettings}
+        onBreakActivitySettingsChange={updateBreakActivitySettings}
       />
 
       {/* About Modal */}
@@ -3982,7 +4080,7 @@ function App() {
             </div>
             <div className="break-overlay-progress">
               <div
-                className="break-overlay-progress-bar"
+                className={`break-overlay-progress-bar${breakTimeRemaining === 0 ? ' no-transition' : ''}`}
                 style={{ width: `${activeBreak.totalTime > 0 ? ((activeBreak.totalTime - breakTimeRemaining) / activeBreak.totalTime) * 100 : 0}%` }}
               />
             </div>
@@ -5982,9 +6080,12 @@ function RecordingModal({ isOpen, onClose, onDone }) {
 // SETTINGS MODAL COMPONENT
 // ============================================
 
-function SettingsModal({ isOpen, onClose, settings, onSave }) {
+function SettingsModal({ isOpen, onClose, settings, onSave, onTestSound, defaultBreakActivities, breakActivitySettings, onBreakActivitySettingsChange }) {
   const [dayStartHour, setDayStartHour] = useState('00')
   const [dayStartMinute, setDayStartMinute] = useState('00')
+  const [editingTooltip, setEditingTooltip] = useState(null)
+  const [tooltipDraft, setTooltipDraft] = useState('')
+  const tooltipInputRef = useRef(null)
 
   useEffect(() => {
     if (settings?.dayStartsAt) {
@@ -5996,16 +6097,32 @@ function SettingsModal({ isOpen, onClose, settings, onSave }) {
 
   useEffect(() => {
     if (!isOpen) return
+    setEditingTooltip(null)
+    document.body.style.overflow = 'hidden'
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose()
+        if (editingTooltip) {
+          setEditingTooltip(null)
+        } else {
+          onClose()
+        }
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = ''
+    }
+  }, [isOpen, onClose, editingTooltip])
+
+  useEffect(() => {
+    if (editingTooltip && tooltipInputRef.current) {
+      tooltipInputRef.current.focus()
+      tooltipInputRef.current.select()
+    }
+  }, [editingTooltip])
 
   const handleSave = () => {
     const hour = Math.max(0, Math.min(23, parseInt(dayStartHour) || 0))
@@ -6017,6 +6134,41 @@ function SettingsModal({ isOpen, onClose, settings, onSave }) {
       dayStartsAt
     })
     onClose()
+  }
+
+  const toggleActivity = (file) => {
+    const current = breakActivitySettings[file] || {}
+    const updated = { ...breakActivitySettings, [file]: { ...current, enabled: current.enabled === false } }
+    onBreakActivitySettingsChange(updated)
+  }
+
+  const startEditTooltip = (file) => {
+    const custom = breakActivitySettings[file]?.tooltip
+    const defaultName = defaultBreakActivities.find(a => a.file === file)?.name || ''
+    setTooltipDraft(custom || defaultName)
+    setEditingTooltip(file)
+  }
+
+  const saveTooltip = () => {
+    if (!editingTooltip) return
+    const defaultName = defaultBreakActivities.find(a => a.file === editingTooltip)?.name || ''
+    const current = breakActivitySettings[editingTooltip] || {}
+    const trimmed = tooltipDraft.trim().slice(0, 20)
+    const tooltip = (trimmed && trimmed !== defaultName) ? trimmed : undefined
+    const updated = { ...breakActivitySettings, [editingTooltip]: { ...current, tooltip } }
+    onBreakActivitySettingsChange(updated)
+    setEditingTooltip(null)
+  }
+
+  const resetTooltip = (file) => {
+    const current = breakActivitySettings[file] || {}
+    const { tooltip: _, ...rest } = current
+    const updated = { ...breakActivitySettings, [file]: rest }
+    onBreakActivitySettingsChange(updated)
+    if (editingTooltip === file) {
+      const defaultName = defaultBreakActivities.find(a => a.file === file)?.name || ''
+      setTooltipDraft(defaultName)
+    }
   }
 
   if (!isOpen) return null
@@ -6055,6 +6207,84 @@ function SettingsModal({ isOpen, onClose, settings, onSave }) {
                   if (num <= 59) setDayStartMinute(val)
                 }}
               />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Notification Volume</label>
+            <div className="volume-slider-row">
+              <input
+                type="range"
+                className="volume-slider"
+                min="0"
+                max="1"
+                step="0.05"
+                value={settings?.notificationVolume ?? 0.5}
+                onChange={e => onSave({ ...settings, notificationVolume: parseFloat(e.target.value) })}
+              />
+              <span className="volume-label">{Math.round((settings?.notificationVolume ?? 0.5) * 100)}%</span>
+              <button className="btn btn-secondary sound-test-btn" onClick={onTestSound}>
+                <Bell size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Break Activities</label>
+            <div className="settings-break-grid">
+              {defaultBreakActivities.map(activity => {
+                const enabled = breakActivitySettings[activity.file]?.enabled !== false
+                const hasCustomTooltip = !!breakActivitySettings[activity.file]?.tooltip
+                const displayName = breakActivitySettings[activity.file]?.tooltip || activity.name
+                const isEditing = editingTooltip === activity.file
+                return (
+                  <div key={activity.file} className={`settings-break-item ${!enabled ? 'disabled' : ''}`}>
+                    <button
+                      className={`settings-break-icon-btn ${!enabled ? 'disabled' : ''}`}
+                      onClick={() => toggleActivity(activity.file)}
+                      title={enabled ? `Disable "${displayName}"` : `Enable "${displayName}"`}
+                    >
+                      <img
+                        src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
+                        alt={displayName}
+                        className="settings-break-icon"
+                      />
+                    </button>
+                    {isEditing ? (
+                      <div className="settings-break-tooltip-edit">
+                        <input
+                          ref={tooltipInputRef}
+                          type="text"
+                          className="settings-break-tooltip-input"
+                          value={tooltipDraft}
+                          onChange={e => setTooltipDraft(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveTooltip()
+                            if (e.key === 'Escape') setEditingTooltip(null)
+                          }}
+                          onBlur={saveTooltip}
+                          maxLength={20}
+                        />
+                      </div>
+                    ) : (
+                      <span
+                        className={`settings-break-tooltip-label ${hasCustomTooltip ? 'custom' : ''}`}
+                        onClick={() => startEditTooltip(activity.file)}
+                        title="Click to edit tooltip"
+                      >
+                        {displayName}
+                        {hasCustomTooltip && (
+                          <button
+                            className="settings-break-tooltip-reset"
+                            onClick={(e) => { e.stopPropagation(); resetTooltip(activity.file) }}
+                            title="Reset to default"
+                          ><RotateCcw size={8} /></button>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -6119,6 +6349,7 @@ function AboutModal({ isOpen, onClose }) {
             <span className="about-privacy-label">Privacy</span>
             All data is stored locally in your browser. Speech-to-text uses your browser's Web Speech API — audio may be processed by your browser vendor (e.g. Google for Chrome). TouchTask does not collect or transmit any data. Provided "as is" without warranty.
           </div>
+
         </div>
       </div>
     </div>
@@ -6161,7 +6392,7 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
     }
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-  }, [])
+  }, [note.id, onUpdate])
 
   // Restore scroll position
   useEffect(() => {
@@ -6170,7 +6401,7 @@ function StickyNoteCard({ note, isEditing, isTop, onStartEdit, onStopEdit, onUpd
       ? noteRef.current?.querySelector('.sticky-note-body-input')
       : contentRef.current?.querySelector('.sticky-note-body')
     if (target) target.scrollTop = note.scrollTop
-  }, [isEditing])
+  }, [isEditing, note.scrollTop])
 
   // Focus body textarea when entering edit mode
   useEffect(() => {

@@ -1801,7 +1801,8 @@
     transition: width 1s linear;
 }
 
-.timer-progress-bar.no-transition { transition: none; }
+.timer-progress-bar.no-transition,
+.break-overlay-progress-bar.no-transition { transition: none; }
 .timer-progress-bar.break-time { background: var(--success); }
 
 .timer-controls {
@@ -2101,6 +2102,28 @@
     color: var(--muted);
 }
 
+.break-activities-reset {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.break-activities-reset:hover:not(:disabled) {
+    color: var(--accent);
+}
+
+.break-activities-reset:disabled {
+    display: none;
+}
+
 .break-snap-btn {
     display: flex;
     align-items: center;
@@ -2269,6 +2292,34 @@
     white-space: nowrap;
     pointer-events: none;
     z-index: 10;
+}
+
+.break-activity-remove {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s ease;
+    z-index: 2;
+}
+
+.break-activity-btn:hover .break-activity-remove {
+    opacity: 1;
+}
+
+.break-activity-remove:hover {
+    color: var(--accent);
+    border-color: var(--accent);
 }
 
 .break-activity-icon {
@@ -2706,13 +2757,43 @@
 
 /* Settings Modal */
 .settings-modal {
-    max-width: 400px;
+    max-width: 780px;
+    max-height: none;
+    overflow-y: visible;
 }
 
 .time-input-row {
     display: flex;
     align-items: center;
     gap: 0.25rem;
+}
+
+.sound-test-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    flex-shrink: 0;
+}
+
+.volume-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.volume-slider {
+    flex: 1;
+    accent-color: var(--ink);
+    cursor: pointer;
+}
+
+.volume-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    min-width: 2.5rem;
+    text-align: right;
 }
 
 .time-input-field {
@@ -2745,6 +2826,132 @@
     color: var(--muted);
     margin-top: 0.5rem;
     font-style: italic;
+}
+
+/* Settings: Break Activities */
+.settings-break-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 4px;
+}
+
+.settings-break-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 4px;
+    border-radius: 4px;
+    transition: background 0.1s;
+    min-width: 0;
+}
+
+.settings-break-item:hover {
+    background: var(--paper-dark);
+}
+
+.settings-break-item.disabled {
+    opacity: 0.4;
+}
+
+.settings-break-icon-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper-dark);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 4px;
+    transition: all 0.15s ease;
+}
+
+.settings-break-icon-btn:hover {
+    border-color: var(--ink);
+}
+
+.settings-break-icon-btn.disabled {
+    background: transparent;
+    border-style: dashed;
+}
+
+.settings-break-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+.settings-break-tooltip-label {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-break-tooltip-label:hover {
+    border-color: var(--rule);
+    color: var(--ink);
+}
+
+.settings-break-tooltip-label.custom {
+    color: var(--ink);
+    font-style: italic;
+}
+
+.settings-break-tooltip-reset {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.settings-break-tooltip-label:hover .settings-break-tooltip-reset {
+    opacity: 1;
+}
+
+.settings-break-tooltip-reset:hover {
+    color: var(--accent);
+}
+
+.settings-break-tooltip-edit {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-break-tooltip-input {
+    width: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    padding: 2px 4px;
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    background: var(--paper);
+    color: var(--ink);
+    outline: none;
 }
 
 /* ============================================
