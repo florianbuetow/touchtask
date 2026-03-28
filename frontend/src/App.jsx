@@ -749,6 +749,8 @@ function App() {
     } catch { /* ignore */ }
     return defaults
   })
+  const bellEnabledRef = useRef(bellEnabled)
+  useEffect(() => { bellEnabledRef.current = bellEnabled }, [bellEnabled])
   const bellAudioRef = useRef(null)
   const audioCtxRef = useRef(null)
   const bellBufferRef = useRef(null)
@@ -2376,7 +2378,7 @@ function App() {
     return ctx
   }, [])
   const playNotification = useCallback((force = false) => {
-    if (!bellEnabled) return
+    if (!bellEnabledRef.current) return
     // Prevent duplicate sounds within 3 seconds (e.g. from heartbeat + visibilitychange)
     const now = Date.now()
     if (!force && now - lastSoundPlayedRef.current < 3000) return
@@ -2407,7 +2409,7 @@ function App() {
     } catch (e) {
       console.error('Audio notification failed:', e)
     }
-  }, [bellEnabled, settings?.notificationVolume])
+  }, [settings?.notificationVolume])
   playNotificationRef.current = playNotification
 
   const [focusTooltip, setFocusTooltip] = useState({ text: '', type: '', visible: false, x: 0, y: 0 })
