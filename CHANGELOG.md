@@ -26,6 +26,10 @@ This repository does not currently use release tags, so entries are grouped by d
 - UI polish across shortlist, pomodoro, and input fields
 - Drawer UX improvements for habit tracker and project board
 
+### Fixed
+- Pomodoro and break timers now use absolute end timestamps plus a stateless heartbeat worker, restoring expiry sounds across reloads/background tabs and preventing break-loop restarts
+- Timer alerts now unlock and prefer Web Audio playback, with visibility resume handling so pending bells fire reliably after tab refocus
+
 ## 2026-02-20 — 2026-02-25
 
 ### Added
