@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --fix",
     "lint:css": "stylelint 'src/**/*.css'",
     "lint:css:fix": "stylelint 'src/**/*.css' --fix",
-    "lint:html": "html-validator --file=index.html --format=text",
+    "lint:html": "html-validator --file=index.html --format=text --validator='http://html5.validator.nu'",
     "deadcode": "knip",
     "complexity": "plato -r -d ../reports/plato src/",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests",
