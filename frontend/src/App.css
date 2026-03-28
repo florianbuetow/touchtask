@@ -1364,6 +1364,293 @@
     color: var(--accent);
 }
 
+/* Themes Section */
+.themes-section {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+}
+
+.themes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+}
+
+.themes-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.themes-clear {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.themes-clear:hover:not(:disabled) {
+    color: var(--accent);
+}
+
+.themes-clear:disabled {
+    display: none;
+}
+
+.themes-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 32px;
+    align-items: flex-start;
+}
+
+.theme-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--cloud);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: var(--ink);
+    cursor: pointer;
+    min-width: 100px;
+    max-width: 200px;
+    transition: border-color 0.15s ease;
+}
+
+.theme-pill:hover {
+    border-color: var(--ink);
+}
+
+.theme-pill-name {
+    font-weight: 700;
+    text-decoration: underline;
+    text-align: center;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.theme-pill-projects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    justify-content: center;
+}
+
+.theme-project-tag {
+    font-size: 0.6rem;
+    padding: 0.1rem 0.35rem;
+    background: rgb(0 0 0 / 6%);
+    border-radius: 4px;
+    color: var(--muted);
+    line-height: 1.2;
+}
+
+/* Theme color variants */
+.theme-pill.theme-blue {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1e40af;
+}
+
+.theme-pill.theme-blue .theme-project-tag {
+    background: rgb(59 130 246 / 15%);
+    color: #1e40af;
+}
+
+.theme-pill.theme-green {
+    background: #f0fdf4;
+    border-color: #22c55e;
+    color: #166534;
+}
+
+.theme-pill.theme-green .theme-project-tag {
+    background: rgb(34 197 94 / 15%);
+    color: #166534;
+}
+
+.theme-pill.theme-orange {
+    background: #fff3e0;
+    border-color: #f59e0b;
+    color: #92400e;
+}
+
+.theme-pill.theme-orange .theme-project-tag {
+    background: rgb(245 158 11 / 15%);
+    color: #92400e;
+}
+
+.theme-pill.theme-red {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #991b1b;
+}
+
+.theme-pill.theme-red .theme-project-tag {
+    background: rgb(239 68 68 / 15%);
+    color: #991b1b;
+}
+
+.theme-pill.theme-purple {
+    background: #faf5ff;
+    border-color: #a855f7;
+    color: #6b21a8;
+}
+
+.theme-pill.theme-purple .theme-project-tag {
+    background: rgb(168 85 247 / 15%);
+    color: #6b21a8;
+}
+
+.theme-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.6rem;
+    border: 2px dashed var(--rule);
+    border-radius: 8px;
+    background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1;
+    min-height: 48px;
+    align-self: stretch;
+    justify-content: center;
+}
+
+.theme-add:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Theme Modal - Name + Color Row */
+.theme-name-color-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+/* Theme Modal - Color Picker */
+.theme-color-picker {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+}
+
+.theme-color-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+    cursor: pointer;
+    transition: all 0.1s ease;
+    padding: 0;
+}
+
+.theme-color-swatch:hover {
+    border-color: var(--ink);
+}
+
+.theme-color-swatch.active {
+    border-width: 2px;
+    border-color: var(--ink);
+    box-shadow: inset 0 0 0 2px var(--paper);
+}
+
+.theme-color-default { background: var(--paper-dark); }
+.theme-color-blue { background: #3b82f6; }
+.theme-color-green { background: #22c55e; }
+.theme-color-orange { background: #f59e0b; }
+.theme-color-red { background: #ef4444; }
+.theme-color-purple { background: #a855f7; }
+
+/* Theme Modal - Project Selector */
+.theme-project-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.theme-project-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: var(--cloud);
+    font-size: 0.75rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.theme-project-pill:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.theme-project-pill.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
+.theme-project-pill.add-project-pill {
+    border-style: dashed;
+    border-width: 2px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.25rem 0.65rem;
+    color: var(--muted);
+}
+
+.theme-project-pill.add-project-pill:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.theme-new-project-inline {
+    display: inline-flex;
+    align-items: center;
+}
+
+.theme-new-project-input {
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    font-family: inherit;
+    outline: none;
+    background: var(--paper);
+    color: var(--ink);
+    width: 160px;
+}
+
 /* Focus Checklist */
 .focus-checklist-section {
     background: var(--paper);

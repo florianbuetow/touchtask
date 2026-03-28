@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -146,6 +146,8 @@ const STORAGE_KEYS = {
   MEETINGS: 'touchtask_meetings',
   HABIT_TRACKER: 'touchtask_habit_tracker',
   PROJECT_BOARD: 'touchtask_project_board',
+  PROJECT_REGISTRY: 'touchtask_project_registry',
+  THEMES: 'touchtask_themes',
   WHITEBOARDS: 'touchtask_whiteboards',
   STICKY_NOTES: 'touchtask_sticky_notes',
   FOCUS_CHECKLIST: 'touchtask_focus_checklist',
@@ -501,6 +503,34 @@ const saveReminders = (data) => {
   localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(data))
 }
 
+const loadProjectRegistry = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.PROJECT_REGISTRY)
+    return data ? JSON.parse(data) : []
+  } catch (e) {
+    console.error('Error loading project registry:', e)
+    return []
+  }
+}
+
+const saveProjectRegistry = (data) => {
+  localStorage.setItem(STORAGE_KEYS.PROJECT_REGISTRY, JSON.stringify(data))
+}
+
+const loadThemes = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.THEMES)
+    return data ? JSON.parse(data) : []
+  } catch (e) {
+    console.error('Error loading themes:', e)
+    return []
+  }
+}
+
+const saveThemes = (data) => {
+  localStorage.setItem(STORAGE_KEYS.THEMES, JSON.stringify(data))
+}
+
 const loadMeetings = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.MEETINGS)
@@ -610,6 +640,8 @@ const FOCUS_ITEMS_CONFIG = {
   doorClosed: { onIcon: DoorClosed, offIcon: DoorOpen, onTip: 'Your door is closed', offTip: 'Close your door' },
 }
 
+const THEME_COLORS = [null, 'blue', 'green', 'orange', 'red', 'purple']
+
 const clampNotesToViewport = (notes, newW, newH) => {
   let changed = false
   const clamped = notes.map(n => {
@@ -665,6 +697,8 @@ function App() {
   const [meetings, setMeetings] = useState({ date: getTodayString(), items: [] })
   const [habitTracker, setHabitTracker] = useState({ habits: [] })
   const [projectBoard, setProjectBoard] = useState({ projects: [] })
+  const [projectRegistry, setProjectRegistry] = useState([])
+  const [themes, setThemes] = useState([])
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -865,6 +899,7 @@ function App() {
   })
   const [showBrainDump, setShowBrainDump] = useState(savedPaneVisibility.brainDump !== false)
   const [showBreakActivities, setShowBreakActivities] = useState(savedPaneVisibility.breakActivities !== false)
+  const [showThemes, setShowThemes] = useState(savedPaneVisibility.themes !== false)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PANE_VISIBILITY, JSON.stringify({
@@ -874,8 +909,9 @@ function App() {
       currentFocus: showCurrentFocus,
       brainDump: showBrainDump,
       breakActivities: showBreakActivities,
+      themes: showThemes,
     }))
-  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities])
+  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes])
 
   const breakEndTimeRef = useRef(null)
   const [breakTimeRemaining, setBreakTimeRemaining] = useState(() => {
@@ -1027,6 +1063,9 @@ function App() {
   const [contextSwitchClearConfirmOpen, setContextSwitchClearConfirmOpen] = useState(false)
   const [scheduleClearConfirmOpen, setScheduleClearConfirmOpen] = useState(false)
   const [shortlistClearConfirmOpen, setShortlistClearConfirmOpen] = useState(false)
+  const [themeModalOpen, setThemeModalOpen] = useState(false)
+  const [editingTheme, setEditingTheme] = useState(null)
+  const [themesClearConfirmOpen, setThemesClearConfirmOpen] = useState(false)
   const [showMeetings, setShowMeetings] = useState(true)
   const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
@@ -1079,7 +1118,7 @@ function App() {
       console.log('TouchTask: Daily state loaded', existingDaily)
       const daily = initializeDailyState(master, existingDaily)
       console.log('TouchTask: Daily state initialized', daily)
-      const kanban = loadKanbanTasks()
+      let kanban = loadKanbanTasks()
       console.log('TouchTask: Kanban tasks loaded', kanban)
       const appSettings = loadSettings()
       console.log('TouchTask: Settings loaded', appSettings)
@@ -1089,8 +1128,56 @@ function App() {
       console.log('TouchTask: Meetings loaded', loadedMeetings)
       const loadedHabitTracker = loadHabitTracker()
       console.log('TouchTask: Habit tracker loaded', loadedHabitTracker)
-      const loadedProjectBoard = loadProjectBoard()
+      let loadedProjectBoard = loadProjectBoard()
       console.log('TouchTask: Project board loaded', loadedProjectBoard)
+      let loadedRegistry = loadProjectRegistry()
+      if (loadedRegistry.length === 0) {
+        const registryMap = new Map()
+        for (const p of loadedProjectBoard.projects) {
+          registryMap.set(p.name.toLowerCase(), { id: p.id, name: p.name })
+        }
+        for (const task of kanban.tasks) {
+          if (task.project && !registryMap.has(task.project.toLowerCase())) {
+            const isAlreadyId = loadedProjectBoard.projects.some(p => p.id === task.project)
+            if (!isAlreadyId) {
+              registryMap.set(task.project.toLowerCase(), { id: generateId(), name: task.project })
+            }
+          }
+        }
+        loadedRegistry = Array.from(registryMap.values())
+        if (loadedRegistry.length > 0) {
+          const nameToId = new Map(loadedRegistry.map(p => [p.name.toLowerCase(), p.id]))
+          kanban = {
+            tasks: kanban.tasks.map(t => {
+              if (t.project && nameToId.has(t.project.toLowerCase())) {
+                return { ...t, project: nameToId.get(t.project.toLowerCase()) }
+              }
+              return t
+            })
+          }
+          saveKanbanTasks(kanban)
+          loadedProjectBoard = {
+            projects: loadedProjectBoard.projects.map(p => ({
+              ...p,
+              tasks: p.tasks.map(t => ({ ...t, project: p.id }))
+            }))
+          }
+          saveProjectBoard(loadedProjectBoard)
+          saveProjectRegistry(loadedRegistry)
+        }
+      }
+      console.log('TouchTask: Project registry loaded', loadedRegistry)
+      let loadedThemes = loadThemes()
+      // Strip orphan project IDs from themes
+      const validIds = new Set(loadedRegistry.map(p => p.id))
+      let themesChanged = false
+      loadedThemes = loadedThemes.map(t => {
+        const cleaned = t.projectIds.filter(id => validIds.has(id))
+        if (cleaned.length !== t.projectIds.length) { themesChanged = true; return { ...t, projectIds: cleaned } }
+        return t
+      })
+      if (themesChanged) saveThemes(loadedThemes)
+      console.log('TouchTask: Themes loaded', loadedThemes)
       const loadedWhiteboards = loadWhiteboards()
       console.log('TouchTask: Whiteboards loaded', loadedWhiteboards)
       const loadedStickyNotes = clampNotesToViewport(loadStickyNotes(), window.innerWidth, window.innerHeight)
@@ -1103,6 +1190,8 @@ function App() {
       setMeetings(loadedMeetings)
       setHabitTracker(loadedHabitTracker)
       setProjectBoard(loadedProjectBoard)
+      setProjectRegistry(loadedRegistry)
+      setThemes(loadedThemes)
       setWhiteboardsData(loadedWhiteboards)
       setStickyNotes(loadedStickyNotes)
       setSettings(appSettings)
@@ -1548,6 +1637,8 @@ function App() {
       meetings: meetings.items,
       habitTracker: habitTracker.habits,
       projectBoard: projectBoard.projects,
+      projectRegistry: projectRegistry,
+      themes: themes,
       whiteboards: whiteboardsData,
       stickyNotes: stickyNotes,
       brainDump: brainDump,
@@ -1612,7 +1703,7 @@ function App() {
 
     // Apply loaded data - masterBlocks and kanbanTasks are direct arrays
     const loadedMasterBlocks = { blocks: pendingLoadData.masterBlocks }
-    const loadedKanbanTasks = { tasks: pendingLoadData.kanbanTasks }
+    let loadedKanbanTasks = { tasks: pendingLoadData.kanbanTasks }
 
     saveMasterBlocks(loadedMasterBlocks)
     setMasterBlocks(loadedMasterBlocks)
@@ -1620,9 +1711,6 @@ function App() {
     // Always treat as a new day - copy all master blocks to daily state
     const newDaily = initializeDailyState(loadedMasterBlocks, null)
     setDailyState(newDaily)
-
-    saveKanbanTasks(loadedKanbanTasks)
-    setKanbanTasks(loadedKanbanTasks)
 
     // Load reminders
     const loadedReminders = pendingLoadData.reminders || []
@@ -1640,9 +1728,55 @@ function App() {
     setHabitTracker(loadedHabitTracker)
 
     // Load project board
-    const loadedProjectBoard = { projects: pendingLoadData.projectBoard || [] }
+    let loadedProjectBoard = { projects: pendingLoadData.projectBoard || [] }
+
+    // Load project registry
+    let loadedProjectRegistry = pendingLoadData.projectRegistry || []
+    if (loadedProjectRegistry.length === 0) {
+      const registryMap = new Map()
+      loadedProjectBoard.projects.forEach(p => {
+        registryMap.set(p.name.toLowerCase(), { id: p.id, name: p.name })
+      })
+      loadedKanbanTasks.tasks.forEach(task => {
+        if (!task.project) return
+        const hasProjectId = loadedProjectBoard.projects.some(p => p.id === task.project)
+        if (!hasProjectId && !registryMap.has(task.project.toLowerCase())) {
+          registryMap.set(task.project.toLowerCase(), { id: generateId(), name: task.project })
+        }
+      })
+      loadedProjectRegistry = Array.from(registryMap.values())
+    }
+
+    if (loadedProjectRegistry.length > 0) {
+      const nameToId = new Map(loadedProjectRegistry.map(p => [p.name.toLowerCase(), p.id]))
+      loadedKanbanTasks = {
+        tasks: loadedKanbanTasks.tasks.map(task => {
+          if (task.project && nameToId.has(task.project.toLowerCase())) {
+            return { ...task, project: nameToId.get(task.project.toLowerCase()) }
+          }
+          return task
+        })
+      }
+      loadedProjectBoard = {
+        projects: loadedProjectBoard.projects.map(project => ({
+          ...project,
+          tasks: project.tasks.map(task => ({ ...task, project: project.id }))
+        }))
+      }
+    }
+
+    saveKanbanTasks(loadedKanbanTasks)
+    setKanbanTasks(loadedKanbanTasks)
     saveProjectBoard(loadedProjectBoard)
     setProjectBoard(loadedProjectBoard)
+
+    saveProjectRegistry(loadedProjectRegistry)
+    setProjectRegistry(loadedProjectRegistry)
+
+    // Load themes
+    const loadedThemes2 = pendingLoadData.themes || []
+    saveThemes(loadedThemes2)
+    setThemes(loadedThemes2)
 
     // Load whiteboards
     const loadedWhiteboards = pendingLoadData.whiteboards || getDefaultWhiteboards()
@@ -1721,6 +1855,14 @@ function App() {
     saveProjectBoard(emptyProjectBoard)
     setProjectBoard(emptyProjectBoard)
 
+    // Clear project registry
+    saveProjectRegistry([])
+    setProjectRegistry([])
+
+    // Clear themes
+    saveThemes([])
+    setThemes([])
+
     // Clear whiteboards
     const emptyWhiteboards = getDefaultWhiteboards()
     saveWhiteboards(emptyWhiteboards)
@@ -1797,77 +1939,99 @@ function App() {
 
     // Load demo project board
     const t = () => new Date().toISOString()
+    const appLaunchId = generateId()
+    const contentPlanId = generateId()
+    const websiteRedesignId = generateId()
+    const userResearchId = generateId()
+    const bugFixesId = generateId()
+    const apiIntegrationId = generateId()
+    const onboardingId = generateId()
+    const q2PlanningId = generateId()
     const pt = (title, category, priority, project, minutes = 0) => ({ id: generateId(), title, category, project, priority, time_logged_minutes: minutes, created_at: t(), completed_at: null })
     const demoProjectBoard = {
       projects: [
         {
-          id: generateId(), name: 'App Launch', created_at: t(),
+          id: appLaunchId, name: 'App Launch', created_at: t(),
           tasks: [
-            pt('Write landing page copy', 'Marketing', 'high', 'App Launch'),
-            pt('Set up analytics dashboard', 'Development', 'normal', 'App Launch'),
-            pt('Create onboarding flow', 'Design', 'high', 'App Launch', 45),
-            pt('Prepare press kit', 'Marketing', 'low', 'App Launch'),
-            pt('Configure CI/CD pipeline', 'Development', 'normal', 'App Launch', 120),
+            pt('Write landing page copy', 'Marketing', 'high', appLaunchId),
+            pt('Set up analytics dashboard', 'Development', 'normal', appLaunchId),
+            pt('Create onboarding flow', 'Design', 'high', appLaunchId, 45),
+            pt('Prepare press kit', 'Marketing', 'low', appLaunchId),
+            pt('Configure CI/CD pipeline', 'Development', 'normal', appLaunchId, 120),
           ]
         },
         {
-          id: generateId(), name: 'Content Plan', created_at: t(),
+          id: contentPlanId, name: 'Content Plan', created_at: t(),
           tasks: [
-            pt('Draft blog post outline', 'Writing', 'normal', 'Content Plan'),
-            pt('Record tutorial video', 'Content', 'high', 'Content Plan'),
-            pt('Design social media assets', 'Design', 'low', 'Content Plan'),
-            pt('Write product changelog', 'Writing', 'normal', 'Content Plan', 30),
+            pt('Draft blog post outline', 'Writing', 'normal', contentPlanId),
+            pt('Record tutorial video', 'Content', 'high', contentPlanId),
+            pt('Design social media assets', 'Design', 'low', contentPlanId),
+            pt('Write product changelog', 'Writing', 'normal', contentPlanId, 30),
           ]
         },
         {
-          id: generateId(), name: 'Website Redesign', created_at: t(),
+          id: websiteRedesignId, name: 'Website Redesign', created_at: t(),
           tasks: [
-            pt('Audit current site performance', 'Research', 'high', 'Website Redesign', 60),
-            pt('Create wireframes for homepage', 'Design', 'high', 'Website Redesign'),
-            pt('Build responsive nav component', 'Development', 'normal', 'Website Redesign', 90),
+            pt('Audit current site performance', 'Research', 'high', websiteRedesignId, 60),
+            pt('Create wireframes for homepage', 'Design', 'high', websiteRedesignId),
+            pt('Build responsive nav component', 'Development', 'normal', websiteRedesignId, 90),
           ]
         },
         {
-          id: generateId(), name: 'User Research', created_at: t(),
+          id: userResearchId, name: 'User Research', created_at: t(),
           tasks: [
-            pt('Prepare interview questions', 'Research', 'normal', 'User Research'),
-            pt('Schedule 5 user interviews', 'Outreach', 'high', 'User Research', 15),
+            pt('Prepare interview questions', 'Research', 'normal', userResearchId),
+            pt('Schedule 5 user interviews', 'Outreach', 'high', userResearchId, 15),
           ]
         },
         {
-          id: generateId(), name: 'Bug Fixes', created_at: t(),
+          id: bugFixesId, name: 'Bug Fixes', created_at: t(),
           tasks: [
-            pt('Fix mobile layout overflow', 'Development', 'high', 'Bug Fixes', 25),
+            pt('Fix mobile layout overflow', 'Development', 'high', bugFixesId, 25),
           ]
         },
         {
-          id: generateId(), name: 'API Integration', created_at: t(),
+          id: apiIntegrationId, name: 'API Integration', created_at: t(),
           tasks: [
-            pt('Design REST API schema', 'Architecture', 'high', 'API Integration'),
-            pt('Implement auth endpoints', 'Development', 'high', 'API Integration', 180),
-            pt('Write API documentation', 'Documentation', 'normal', 'API Integration'),
+            pt('Design REST API schema', 'Architecture', 'high', apiIntegrationId),
+            pt('Implement auth endpoints', 'Development', 'high', apiIntegrationId, 180),
+            pt('Write API documentation', 'Documentation', 'normal', apiIntegrationId),
           ]
         },
         {
-          id: generateId(), name: 'Onboarding', created_at: t(),
+          id: onboardingId, name: 'Onboarding', created_at: t(),
           tasks: [
-            pt('Design welcome wizard', 'Design', 'high', 'Onboarding'),
-            pt('Build tooltip tour component', 'Development', 'normal', 'Onboarding', 40),
+            pt('Design welcome wizard', 'Design', 'high', onboardingId),
+            pt('Build tooltip tour component', 'Development', 'normal', onboardingId, 40),
           ]
         },
         {
-          id: generateId(), name: 'Q2 Planning', created_at: t(),
+          id: q2PlanningId, name: 'Q2 Planning', created_at: t(),
           tasks: [
-            pt('Review Q1 metrics', 'Strategy', 'high', 'Q2 Planning', 30),
-            pt('Define OKRs for Q2', 'Strategy', 'high', 'Q2 Planning'),
-            pt('Estimate engineering capacity', 'Planning', 'normal', 'Q2 Planning'),
-            pt('Prioritize feature backlog', 'Planning', 'normal', 'Q2 Planning', 20),
+            pt('Review Q1 metrics', 'Strategy', 'high', q2PlanningId, 30),
+            pt('Define OKRs for Q2', 'Strategy', 'high', q2PlanningId),
+            pt('Estimate engineering capacity', 'Planning', 'normal', q2PlanningId),
+            pt('Prioritize feature backlog', 'Planning', 'normal', q2PlanningId, 20),
           ]
         }
       ]
     }
     saveProjectBoard(demoProjectBoard)
     setProjectBoard(demoProjectBoard)
+
+    // Build registry from demo project board
+    const demoRegistry = demoProjectBoard.projects.map(p => ({ id: p.id, name: p.name }))
+    saveProjectRegistry(demoRegistry)
+    setProjectRegistry(demoRegistry)
+
+    // Create demo themes
+    const demoThemes = [
+      { id: generateId(), name: 'Product Launch', color: 'blue', projectIds: demoProjectBoard.projects.filter(p => ['App Launch', 'Content Plan', 'Onboarding'].includes(p.name)).map(p => p.id) },
+      { id: generateId(), name: 'Technical Excellence', color: 'green', projectIds: demoProjectBoard.projects.filter(p => ['Website Redesign', 'Bug Fixes', 'API Integration'].includes(p.name)).map(p => p.id) },
+      { id: generateId(), name: 'Strategic Planning', color: 'purple', projectIds: demoProjectBoard.projects.filter(p => ['User Research', 'Q2 Planning'].includes(p.name)).map(p => p.id) },
+    ]
+    saveThemes(demoThemes)
+    setThemes(demoThemes)
 
     // Clear whiteboards (no demo data for whiteboards)
     const emptyWhiteboards = getDefaultWhiteboards()
@@ -1960,6 +2124,65 @@ function App() {
     const updated = reminders.filter(r => r.id !== id)
     setReminders(updated)
     saveReminders(updated)
+  }
+
+  // ============================================
+  // PROJECT REGISTRY HELPERS
+  // ============================================
+
+  const getProjectName = useCallback((projectId) => {
+    if (!projectId) return ''
+    const entry = projectRegistry.find(p => p.id === projectId)
+    return entry ? entry.name : projectId
+  }, [projectRegistry])
+
+  const addRegistryProject = (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return null
+    const existing = projectRegistry.find(p => p.name.toLowerCase() === trimmed.toLowerCase())
+    if (existing) return existing
+    const newProject = { id: generateId(), name: trimmed }
+    const updated = [...projectRegistry, newProject]
+    setProjectRegistry(updated)
+    saveProjectRegistry(updated)
+    return newProject
+  }
+
+  const resolveProjectId = (name) => {
+    if (!name || !name.trim()) return ''
+    const trimmed = name.trim()
+    const existing = projectRegistry.find(p => p.name.toLowerCase() === trimmed.toLowerCase())
+    if (existing) return existing.id
+    const newProject = addRegistryProject(trimmed)
+    return newProject ? newProject.id : ''
+  }
+
+  // ============================================
+  // THEMES HANDLERS
+  // ============================================
+
+  const addTheme = (themeData) => {
+    const newTheme = {
+      id: generateId(),
+      name: themeData.name.trim(),
+      color: themeData.color || null,
+      projectIds: themeData.projectIds || []
+    }
+    const updated = [...themes, newTheme]
+    setThemes(updated)
+    saveThemes(updated)
+  }
+
+  const editTheme = (id, themeData) => {
+    const updated = themes.map(t => t.id === id ? { ...t, name: themeData.name.trim(), color: themeData.color !== undefined ? themeData.color : t.color, projectIds: themeData.projectIds || [] } : t)
+    setThemes(updated)
+    saveThemes(updated)
+  }
+
+  const deleteTheme = (id) => {
+    const updated = themes.filter(t => t.id !== id)
+    setThemes(updated)
+    saveThemes(updated)
   }
 
   // ============================================
@@ -2077,12 +2300,30 @@ function App() {
     const updated = { projects: [...projectBoard.projects, newProject] }
     setProjectBoard(updated)
     saveProjectBoard(updated)
+    const regEntry = { id: newProject.id, name: newProject.name }
+    const updatedReg = [...projectRegistry, regEntry]
+    setProjectRegistry(updatedReg)
+    saveProjectRegistry(updatedReg)
   }
 
   const deleteProject = (projectId) => {
     const updated = { projects: projectBoard.projects.filter(p => p.id !== projectId) }
     setProjectBoard(updated)
     saveProjectBoard(updated)
+    const hasKanbanRefs = kanbanTasks?.tasks.some(t => t.project === projectId)
+    if (!hasKanbanRefs) {
+      const updatedReg = projectRegistry.filter(p => p.id !== projectId)
+      setProjectRegistry(updatedReg)
+      saveProjectRegistry(updatedReg)
+    }
+    // Strip deleted project from all themes
+    const updatedThemes = themes.map(t =>
+      t.projectIds.includes(projectId) ? { ...t, projectIds: t.projectIds.filter(id => id !== projectId) } : t
+    )
+    if (updatedThemes.some((t, i) => t !== themes[i])) {
+      setThemes(updatedThemes)
+      saveThemes(updatedThemes)
+    }
   }
 
   const addProjectTask = (projectId, taskData) => {
@@ -2090,7 +2331,7 @@ function App() {
       id: generateId(),
       title: taskData.title,
       category: taskData.category || 'Task',
-      project: taskData.project || '',
+      project: taskData.project || projectId,
       priority: taskData.priority || 'normal',
       time_logged_minutes: taskData.time_logged_minutes || 0,
       created_at: new Date().toISOString(),
@@ -2109,7 +2350,7 @@ function App() {
     const updated = {
       projects: projectBoard.projects.map(p =>
         p.id === projectId
-          ? { ...p, tasks: p.tasks.map(t => t.id === taskId ? { ...t, ...taskData } : t) }
+          ? { ...p, tasks: p.tasks.map(t => t.id === taskId ? { ...t, ...taskData, project: taskData.project || projectId } : t) }
           : p
       )
     }
@@ -2724,7 +2965,7 @@ function App() {
           if (task) { sourceProject = project; break }
         }
         if (task) {
-          addKanbanTask({ ...task, column, project: task.project || sourceProject?.name || '' })
+          addKanbanTask({ ...task, column, project: task.project || sourceProject?.id || '' })
           removeTaskFromProject(draggedTaskId)
         }
       } else {
@@ -2745,7 +2986,7 @@ function App() {
           if (task) { sourceProject = project; break }
         }
         if (task) {
-          addKanbanTask({ ...task, column: 'progress', project: task.project || sourceProject?.name || '' })
+          addKanbanTask({ ...task, column: 'progress', project: task.project || sourceProject?.id || '' })
           removeTaskFromProject(draggedTaskId)
           setActiveTask(draggedTaskId)
         }
@@ -2768,7 +3009,7 @@ function App() {
       const task = kanbanTasks.tasks.find(t => t.id === draggedTaskId)
       if (task) {
         const { column: _column, ...projectTask } = task
-        addProjectTask(targetProjectId, { ...projectTask, project: projectTask.project || targetProject?.name || '' })
+        addProjectTask(targetProjectId, { ...projectTask, project: projectTask.project || targetProject?.id || '' })
         deleteKanbanTask(draggedTaskId)
       }
     } else if (dragSource === 'project' && dragSourceProjectId !== targetProjectId) {
@@ -2785,7 +3026,7 @@ function App() {
               return { ...p, tasks: p.tasks.filter(t => t.id !== draggedTaskId) }
             }
             if (p.id === targetProjectId) {
-              return { ...p, tasks: [...p.tasks, { ...task, project: task.project || targetProject?.name || '' }] }
+              return { ...p, tasks: [...p.tasks, { ...task, project: task.project || targetProject?.id || '' }] }
             }
             return p
           })
@@ -3037,6 +3278,13 @@ function App() {
                   <List size={14} />
                 </button>
                 <button
+                  className={`focus-toggle ${!showThemes ? 'disabled' : ''}`}
+                  onClick={() => setShowThemes(!showThemes)}
+                  title={showThemes ? 'Hide themes' : 'Show themes'}
+                >
+                  <SwatchBook size={14} />
+                </button>
+                <button
                   className={`focus-toggle ${!showKanban ? 'disabled' : ''}`}
                   onClick={() => setShowKanban(!showKanban)}
                   title={showKanban ? 'Hide kanban board' : 'Show kanban board'}
@@ -3069,6 +3317,17 @@ function App() {
                 setReminders(sorted)
                 saveReminders(sorted)
               }}
+            />
+          </div>
+
+          {/* Themes Section */}
+          <div className={!showThemes ? 'hidden' : ''}>
+            <ThemesSection
+              themes={themes}
+              projectRegistry={projectRegistry}
+              onAdd={() => { setEditingTheme(null); setThemeModalOpen(true) }}
+              onEdit={(theme) => { setEditingTheme(theme); setThemeModalOpen(true) }}
+              onClear={() => setThemesClearConfirmOpen(true)}
             />
           </div>
 
@@ -3850,6 +4109,9 @@ function App() {
         onSave={editingTask ? (data) => updateKanbanTask(editingTask.id, data) : (data) => addKanbanTask({ ...data, column: taskModalColumn })}
         onDelete={editingTask ? () => deleteKanbanTask(editingTask.id) : null}
         editingTask={editingTask}
+        projectRegistry={projectRegistry}
+        resolveProjectId={resolveProjectId}
+        getProjectName={getProjectName}
       />
 
       {/* Add/Edit Meeting Modal */}
@@ -3883,6 +4145,9 @@ function App() {
           : null
         }
         editingTask={editingProjectTask}
+        projectRegistry={projectRegistry}
+        resolveProjectId={resolveProjectId}
+        getProjectName={getProjectName}
       />
 
       {/* Add Project Modal */}
@@ -4014,6 +4279,31 @@ function App() {
         }}
         title="Clear Shortlist"
         message="Are you sure you want to remove all shortlist items? This action cannot be undone."
+      />
+
+      <AddThemeModal
+        isOpen={themeModalOpen}
+        onClose={() => { setThemeModalOpen(false); setEditingTheme(null) }}
+        onSave={editingTheme
+          ? (data) => { editTheme(editingTheme.id, data); setThemeModalOpen(false); setEditingTheme(null) }
+          : (data) => { addTheme(data); setThemeModalOpen(false) }
+        }
+        onDelete={(id) => { deleteTheme(id); setThemeModalOpen(false); setEditingTheme(null) }}
+        editingTheme={editingTheme}
+        projectRegistry={projectRegistry}
+        onAddProject={addRegistryProject}
+      />
+
+      <ConfirmDialog
+        isOpen={themesClearConfirmOpen}
+        onClose={() => setThemesClearConfirmOpen(false)}
+        onConfirm={() => {
+          setThemes([])
+          saveThemes([])
+          setThemesClearConfirmOpen(false)
+        }}
+        title="Clear Themes"
+        message="Are you sure you want to remove all themes? This action cannot be undone."
       />
 
       {/* Settings Modal */}
@@ -4772,7 +5062,7 @@ function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
 // ADD TASK MODAL
 // ============================================
 
-function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
+function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask, projectRegistry = [], resolveProjectId, getProjectName }) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
   const [project, setProject] = useState('')
@@ -4780,6 +5070,19 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
   const [hoursSpent, setHoursSpent] = useState('')
   const [minutesSpent, setMinutesSpent] = useState('')
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+
+  const resolveProjectIdLocal = useCallback((nameValue) => {
+    if (!nameValue || !nameValue.trim()) return ''
+    const trimmed = nameValue.trim()
+    const existing = projectRegistry.find(p => p.name.toLowerCase() === trimmed.toLowerCase())
+    return existing ? existing.id : ''
+  }, [projectRegistry])
+
+  const getProjectNameLocal = useCallback((id) => {
+    if (!id) return ''
+    const entry = projectRegistry.find(p => p.id === id)
+    return entry ? entry.name : id
+  }, [projectRegistry])
 
   // Close on Escape key
   useEffect(() => {
@@ -4796,7 +5099,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
     if (editingTask) {
       setName(editingTask.title || '')
       setCategory(editingTask.category || '')
-      setProject(editingTask.project || '')
+      setProject((getProjectName ? getProjectName(editingTask.project) : getProjectNameLocal(editingTask.project)) || editingTask.project || '')
       setPriority(editingTask.priority || 'normal')
       const hours = Math.floor((editingTask.time_logged_minutes || 0) / 60)
       const mins = (editingTask.time_logged_minutes || 0) % 60
@@ -4811,7 +5114,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
       setHoursSpent('')
       setMinutesSpent('')
     }
-  }, [editingTask, isOpen])
+  }, [editingTask, getProjectName, getProjectNameLocal, isOpen])
 
   const modalRef = useRef(null)
   useFocusTrap(modalRef, isOpen)
@@ -4827,7 +5130,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
     onSave({
       title: name.trim(),
       category: category.trim() || 'Task',
-      project: project.trim(),
+      project: (resolveProjectId ? resolveProjectId(project) : resolveProjectIdLocal(project)) || project.trim(),
       priority,
       time_logged_minutes: totalMinutes
     })
@@ -4889,8 +5192,12 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
                 className="form-input"
                 placeholder="e.g., Website Redesign"
                 value={project}
+                list="project-suggestions"
                 onChange={e => setProject(e.target.value)}
               />
+              <datalist id="project-suggestions">
+                {(projectRegistry || []).map(p => <option key={p.id} value={p.name} />)}
+              </datalist>
             </div>
           </div>
 
@@ -4979,6 +5286,210 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
         }}
         title="Delete Task"
         message={`Are you sure you want to delete "${name}"? This action cannot be undone.`}
+      />
+    </div>
+  )
+}
+
+// ============================================
+// THEMES SECTION COMPONENT
+// ============================================
+
+function ThemesSection({ themes, projectRegistry, onAdd, onEdit, onClear }) {
+  const registryIds = useMemo(() => new Set(projectRegistry.map(p => p.id)), [projectRegistry])
+  const getProjectName = (id) => {
+    const p = projectRegistry.find(pr => pr.id === id)
+    return p ? p.name : id
+  }
+
+  return (
+    <div className="themes-section">
+      <div className="themes-header">
+        <span className="themes-label">Themes</span>
+        <button
+          className="themes-clear"
+          onClick={onClear}
+          title="Clear all themes"
+          disabled={themes.length === 0}
+        ><Trash2 size={14} /></button>
+      </div>
+      <div className="themes-pills">
+        {themes.map(theme => (
+          <div
+            key={theme.id}
+            className={`theme-pill${theme.color ? ` theme-${theme.color}` : ''}`}
+            onClick={() => onEdit(theme)}
+          >
+            <div className="theme-pill-name">{theme.name}</div>
+            {(theme.projectIds || []).filter(pid => registryIds.has(pid)).length > 0 && (
+              <div className="theme-pill-projects">
+                {(theme.projectIds || []).filter(pid => registryIds.has(pid)).map(pid => (
+                  <span key={pid} className="theme-project-tag">{getProjectName(pid)}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        <span className="theme-add" onClick={onAdd}>+ Add</span>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// ADD THEME MODAL
+// ============================================
+
+function AddThemeModal({ isOpen, onClose, onSave, onDelete, editingTheme, projectRegistry, onAddProject }) {
+  const [name, setName] = useState('')
+  const [selectedColor, setSelectedColor] = useState(null)
+  const [selectedProjectIds, setSelectedProjectIds] = useState([])
+  const [newProjectName, setNewProjectName] = useState('')
+  const [showNewProjectInput, setShowNewProjectInput] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      if (editingTheme) {
+        setName(editingTheme.name)
+        setSelectedColor(editingTheme.color || null)
+        setSelectedProjectIds([...(editingTheme.projectIds || [])])
+      } else {
+        setName('')
+        setSelectedColor(null)
+        setSelectedProjectIds([])
+      }
+      setNewProjectName('')
+      setShowNewProjectInput(false)
+      setDeleteConfirmOpen(false)
+    }
+  }, [isOpen, editingTheme])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [isOpen, onClose])
+
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
+  const handleSave = () => {
+    if (!name.trim()) return
+    onSave({ name: name.trim(), color: selectedColor, projectIds: selectedProjectIds })
+    onClose()
+  }
+
+  const toggleProject = (projectId) => {
+    setSelectedProjectIds(prev =>
+      prev.includes(projectId) ? prev.filter(id => id !== projectId) : [...prev, projectId]
+    )
+  }
+
+  const handleAddNewProject = () => {
+    if (!newProjectName.trim()) return
+    const newProject = onAddProject(newProjectName.trim())
+    if (newProject) {
+      setSelectedProjectIds(prev => prev.includes(newProject.id) ? prev : [...prev, newProject.id])
+      setNewProjectName('')
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">{editingTheme ? 'Edit Theme' : 'Add Theme'}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div className="theme-name-color-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Theme Name</label>
+              <textarea
+                className="form-input form-textarea"
+                placeholder="e.g., Product Launch Q2"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && e.metaKey) handleSave() }}
+                rows={3}
+                autoFocus
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Color</label>
+              <div className="theme-color-picker">
+                <button
+                  className={`theme-color-swatch theme-color-default${selectedColor === null ? ' active' : ''}`}
+                  onClick={() => setSelectedColor(null)}
+                  title="Default"
+                />
+                {THEME_COLORS.filter(Boolean).map(color => (
+                  <button
+                    key={color}
+                    className={`theme-color-swatch theme-color-${color}${selectedColor === color ? ' active' : ''}`}
+                    onClick={() => setSelectedColor(color)}
+                    title={color.charAt(0).toUpperCase() + color.slice(1)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Projects</label>
+            <div className="theme-project-selector">
+              {projectRegistry.map(p => (
+                <span
+                  key={p.id}
+                  className={`theme-project-pill${selectedProjectIds.includes(p.id) ? ' selected' : ''}`}
+                  onClick={() => toggleProject(p.id)}
+                >
+                  {p.name}
+                </span>
+              ))}
+              {!showNewProjectInput ? (
+                <span className="theme-project-pill add-project-pill" onClick={() => setShowNewProjectInput(true)}>+</span>
+              ) : (
+                <span className="theme-new-project-inline">
+                  <input
+                    type="text"
+                    className="theme-new-project-input"
+                    placeholder="Add new project name..."
+                    value={newProjectName}
+                    onChange={e => setNewProjectName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.preventDefault(); handleAddNewProject(); setShowNewProjectInput(false) }
+                      if (e.key === 'Escape') { setNewProjectName(''); setShowNewProjectInput(false) }
+                    }}
+                    onBlur={() => { if (!newProjectName.trim()) setShowNewProjectInput(false) }}
+                    autoFocus
+                  />
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          {editingTheme && (
+            <button className="btn btn-danger" onClick={() => setDeleteConfirmOpen(true)}>Delete</button>
+          )}
+          <span style={{ flex: 1 }} />
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={!name.trim()}>
+            {editingTheme ? 'Save' : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => { onDelete(editingTheme.id); setDeleteConfirmOpen(false); onClose() }}
+        title="Delete Theme"
+        message={`Are you sure you want to delete "${editingTheme?.name || 'this theme'}"? This action cannot be undone.`}
       />
     </div>
   )

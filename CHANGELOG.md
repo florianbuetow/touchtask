@@ -7,6 +7,9 @@ This repository does not currently use release tags, so entries are grouped by d
 
 ## 2026-03-28
 
+### Added
+- Project registry and Themes pane in the Task Tracking column, with persistent theme colors, project associations, task modal project suggestions, and export/import/reset/demo support
+
 ### Fixed
 - Added modal focus trapping so Tab and Shift+Tab stay inside TouchTask modals and no longer trigger the global sticky-notes shortcut behind an open dialog
 
