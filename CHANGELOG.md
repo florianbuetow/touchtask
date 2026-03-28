@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This repository does not currently use release tags, so entries are grouped by date and major update scope.
 
+## 2026-03-28
+
+### Fixed
+- Added modal focus trapping so Tab and Shift+Tab stay inside TouchTask modals and no longer trigger the global sticky-notes shortcut behind an open dialog
+
 ## 2026-03-25
 
 ### Added

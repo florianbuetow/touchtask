@@ -804,6 +804,8 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [aboutModalOpen, setAboutModalOpen] = useState(false)
   const fileInputRef = useRef(null)
+  const editPresetModalRef = useRef(null)
+  useFocusTrap(editPresetModalRef, editingPresetIndex !== null)
 
   // Drag state
   const [draggedTaskId, setDraggedTaskId] = useState(null)
@@ -4038,7 +4040,7 @@ function App() {
       {/* Edit Preset Modal */}
       {editingPresetIndex !== null && (
         <div className="modal-overlay active" onClick={() => setEditingPresetIndex(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" ref={editPresetModalRef} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Edit Preset</h3>
               <button className="modal-close" onClick={() => setEditingPresetIndex(null)}>&times;</button>
@@ -4432,6 +4434,69 @@ function KanbanColumn({ column, tasks, onDragStart, onDragOver, onDrop, onAddCli
 // ADD BLOCK MODAL
 // ============================================
 
+function useFocusTrap(ref, isOpen) {
+  const previousFocusRef = useRef(null)
+
+  useEffect(() => {
+    if (!isOpen || !ref.current) return
+
+    previousFocusRef.current = document.activeElement
+
+    const getFocusableElements = () => {
+      return ref.current.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]), a[href]'
+      )
+    }
+
+    // Focus first element after autoFocus has had a chance to apply
+    requestAnimationFrame(() => {
+      if (ref.current && !ref.current.contains(document.activeElement)) {
+        const focusable = getFocusableElements()
+        if (focusable.length > 0) focusable[0].focus()
+      }
+    })
+
+    const handleKeyDown = (e) => {
+      if (e.key !== 'Tab') return
+
+      // Always stop propagation to prevent the global Shift+Tab → sticky notes shortcut
+      e.stopPropagation()
+
+      const elements = getFocusableElements()
+      if (elements.length === 0) {
+        e.preventDefault()
+        return
+      }
+
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+      const active = document.activeElement
+
+      if (e.shiftKey) {
+        if (active === first || !ref.current.contains(active)) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (active === last || !ref.current.contains(active)) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    const el = ref.current
+    el.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      el.removeEventListener('keydown', handleKeyDown)
+      if (previousFocusRef.current && previousFocusRef.current.focus) {
+        previousFocusRef.current.focus()
+      }
+    }
+  }, [isOpen, ref])
+}
+
 function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -4483,6 +4548,9 @@ function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingBlock, isOpen])
+
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -4553,7 +4621,7 @@ function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{isEditing ? 'Edit Time Block' : 'Add Time Block'}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -4745,6 +4813,9 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
     }
   }, [editingTask, isOpen])
 
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   const handleSave = () => {
     if (!name.trim()) {
       alert('Please enter a task name')
@@ -4781,7 +4852,7 @@ function AddTaskModal({ isOpen, onClose, onSave, onDelete, editingTask }) {
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{isEditing ? 'Edit Task' : 'Add Task'}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -4924,6 +4995,9 @@ function AddProjectModal({ isOpen, onClose, onSave }) {
     if (isOpen) setName('')
   }, [isOpen])
 
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   const handleSave = () => {
     if (!name.trim()) return
     onSave(name.trim())
@@ -4933,7 +5007,7 @@ function AddProjectModal({ isOpen, onClose, onSave }) {
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Add Project</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -4986,6 +5060,9 @@ function AddMeetingModal({ isOpen, onClose, onSave, onDelete, editingMeeting }) 
     }
   }, [editingMeeting, isOpen])
 
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   const handleSave = () => {
     if (!title.trim()) {
       alert('Please enter a title')
@@ -5011,7 +5088,7 @@ function AddMeetingModal({ isOpen, onClose, onSave, onDelete, editingMeeting }) 
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{isEditing ? 'Edit Entry' : 'Add Entry'}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -5098,6 +5175,9 @@ function AddHabitModal({ isOpen, onClose, onSave, onDelete, editingHabit }) {
     }
   }, [editingHabit, isOpen])
 
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   const handleSave = () => {
     if (!name.trim()) {
       alert('Please enter a habit name')
@@ -5113,7 +5193,7 @@ function AddHabitModal({ isOpen, onClose, onSave, onDelete, editingHabit }) {
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{isEditing ? 'Edit Habit' : 'Add Habit'}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -5906,6 +5986,9 @@ function AddRemindersModal({ isOpen, onClose, onSave }) {
     return () => document.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   const handleSave = () => {
     const items = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
     if (items.length === 0) return
@@ -5917,7 +6000,7 @@ function AddRemindersModal({ isOpen, onClose, onSave }) {
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Add Items</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -5963,11 +6046,14 @@ function ConfirmDialog({ isOpen, onClose, onConfirm, title, message }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   if (!isOpen) return null
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
+      <div className="modal confirm-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{title}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -6004,11 +6090,14 @@ function AlertDialog({ isOpen, onClose, title, message }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   if (!isOpen) return null
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
+      <div className="modal confirm-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{title}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -6044,6 +6133,8 @@ function RecordingModal({ isOpen, onClose, onDone }) {
   const onDoneRef = useRef(onDone)
   onCloseRef.current = onClose
   onDoneRef.current = onDone
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
 
   const handleCancel = useCallback(() => {
     clearInterval(intervalRef.current)
@@ -6176,7 +6267,7 @@ function RecordingModal({ isOpen, onClose, onDone }) {
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={handleCancel}>
-      <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
+      <div className="modal confirm-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Speech to Text</h3>
           <button className="modal-close" onClick={handleCancel}>&times;</button>
@@ -6219,6 +6310,8 @@ function SettingsModal({ isOpen, onClose, settings, onSave, onTestSound, default
   const [editingTooltip, setEditingTooltip] = useState(null)
   const [tooltipDraft, setTooltipDraft] = useState('')
   const tooltipInputRef = useRef(null)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
 
   useEffect(() => {
     if (settings?.dayStartsAt) {
@@ -6308,7 +6401,7 @@ function SettingsModal({ isOpen, onClose, settings, onSave, onTestSound, default
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal settings-modal" onClick={e => e.stopPropagation()}>
+      <div className="modal settings-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Settings</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -6436,11 +6529,14 @@ function SettingsModal({ isOpen, onClose, settings, onSave, onTestSound, default
 // ============================================
 
 function AboutModal({ isOpen, onClose }) {
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
   if (!isOpen) return null
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="modal about-modal" onClick={e => e.stopPropagation()}>
+      <div className="modal about-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">About</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
