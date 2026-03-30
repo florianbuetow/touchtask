@@ -2787,9 +2787,9 @@ function App() {
       setOrder(prev => {
         const updated = [...prev]
         const fromIdx = updated.indexOf(paneDragId)
-        updated.splice(fromIdx, 1)
         let toIdx = updated.indexOf(targetId)
-        if (toIdx === -1) return prev
+        if (fromIdx === -1 || toIdx === -1) return prev
+        updated.splice(fromIdx, 1)
         if (paneDragPos === 'after') toIdx += 1
         updated.splice(toIdx, 0, paneDragId)
         return updated
@@ -3388,6 +3388,12 @@ function App() {
             style={{ order: middlePaneOrder.indexOf('reminders') }}
             onDragOver={(e) => handlePaneDragOver(e, 'reminders')}
             onDrop={(e) => handlePaneDrop(e, 'reminders', 'middle')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'reminders')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
             <RemindersSection
@@ -3418,6 +3424,12 @@ function App() {
             style={{ order: middlePaneOrder.indexOf('themes') }}
             onDragOver={(e) => handlePaneDragOver(e, 'themes')}
             onDrop={(e) => handlePaneDrop(e, 'themes', 'middle')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'themes')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
             <ThemesSection
@@ -3434,6 +3446,12 @@ function App() {
             style={{ order: middlePaneOrder.indexOf('kanban') }}
             onDragOver={(e) => handlePaneDragOver(e, 'kanban')}
             onDrop={(e) => handlePaneDrop(e, 'kanban', 'middle')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'kanban')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
             <div className="kanban-card">
@@ -3487,67 +3505,73 @@ function App() {
             style={{ order: rightPaneOrder.indexOf('currentFocus') }}
             onDragOver={(e) => handlePaneDragOver(e, 'currentFocus')}
             onDrop={(e) => handlePaneDrop(e, 'currentFocus', 'right')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'currentFocus')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
-          <div className="current-focus-section">
-            <div className="current-focus-header">
-              <span className="current-focus-label">Current focus</span>
-              <button
-                className="context-switch-clear"
-                onClick={() => setContextSwitchClearConfirmOpen(true)}
-                title="Reset counters"
-                disabled={!(contextSwitchData.date === getTodayString() && (contextSwitchData.interrupted > 0 || contextSwitchData.switched > 0))}
-              ><Trash2 size={14} /></button>
-            </div>
-            <div className="current-focus-content">
-              <input
-                type="text"
-                className={`current-focus-input ${currentFocus ? 'has-text' : ''}`}
-                placeholder="NO FOCUS"
-                value={currentFocus}
-                onChange={(e) => {
-                  setCurrentFocus(e.target.value)
-                  localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, e.target.value)
-                }}
-                onDragOver={(e) => {
-                  if (e.dataTransfer.types.includes('application/x-reminder') || e.dataTransfer.types.includes('application/x-task-title')) {
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'copy'
-                  }
-                }}
-                onDrop={(e) => {
-                  const reminderData = e.dataTransfer.getData('application/x-reminder')
-                  const taskTitle = e.dataTransfer.getData('application/x-task-title')
-                  if (reminderData) {
-                    e.preventDefault()
-                    const reminder = JSON.parse(reminderData)
-                    setCurrentFocus(reminder.text)
-                    localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, reminder.text)
-                  } else if (taskTitle) {
-                    e.preventDefault()
-                    setCurrentFocus(taskTitle)
-                    localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, taskTitle)
-                  }
-                }}
-              />
-              {currentFocus && (
+            <div className="current-focus-section">
+              <div className="current-focus-header">
+                <span className="current-focus-label">Current focus</span>
                 <button
-                  className="current-focus-clear"
-                  onClick={() => {
-                    setCurrentFocus('')
-                    localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, '')
+                  className="context-switch-clear"
+                  onClick={() => setContextSwitchClearConfirmOpen(true)}
+                  title="Reset counters"
+                  disabled={!(contextSwitchData.date === getTodayString() && (contextSwitchData.interrupted > 0 || contextSwitchData.switched > 0))}
+                ><Trash2 size={14} /></button>
+              </div>
+              <div className="current-focus-content">
+                <input
+                  type="text"
+                  className={`current-focus-input ${currentFocus ? 'has-text' : ''}`}
+                  placeholder="NO FOCUS"
+                  value={currentFocus}
+                  onChange={(e) => {
+                    setCurrentFocus(e.target.value)
+                    localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, e.target.value)
                   }}
-                  title="Clear focus"
-                >×</button>
-              )}
+                  onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes('application/x-reminder') || e.dataTransfer.types.includes('application/x-task-title')) {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'copy'
+                    }
+                  }}
+                  onDrop={(e) => {
+                    const reminderData = e.dataTransfer.getData('application/x-reminder')
+                    const taskTitle = e.dataTransfer.getData('application/x-task-title')
+                    if (reminderData) {
+                      e.preventDefault()
+                      const reminder = JSON.parse(reminderData)
+                      setCurrentFocus(reminder.text)
+                      localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, reminder.text)
+                    } else if (taskTitle) {
+                      e.preventDefault()
+                      setCurrentFocus(taskTitle)
+                      localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, taskTitle)
+                    }
+                  }}
+                />
+                {currentFocus && (
+                  <button
+                    className="current-focus-clear"
+                    onClick={() => {
+                      setCurrentFocus('')
+                      localStorage.setItem(STORAGE_KEYS.CURRENT_FOCUS, '')
+                    }}
+                    title="Clear focus"
+                  >×</button>
+                )}
+              </div>
+              <div className="context-switch-controls">
+                <button className="context-switch-btn" onClick={incrementInterrupted}>I was interrupted</button>
+                <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 8 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 4 ? 'warning' : 'normal'}`} title="Times interrupted today — 0–3 normal, 4–7 losing 1.5–2.5h to refocusing, 8+ more time recovering than doing deep work">{contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0}x</span>
+                <button className="context-switch-btn" onClick={incrementSwitched}>I switched context</button>
+                <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 10 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 5 ? 'warning' : 'normal'}`} title="Times you switched context today — 0–4 normal, 5–9 fragmented attention, 10+ task-hopping">{contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0}x</span>
+              </div>
             </div>
-            <div className="context-switch-controls">
-              <button className="context-switch-btn" onClick={incrementInterrupted}>I was interrupted</button>
-              <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 8 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0) >= 4 ? 'warning' : 'normal'}`} title="Times interrupted today — 0–3 normal, 4–7 losing 1.5–2.5h to refocusing, 8+ more time recovering than doing deep work">{contextSwitchData.date === getTodayString() ? contextSwitchData.interrupted : 0}x</span>
-              <button className="context-switch-btn" onClick={incrementSwitched}>I switched context</button>
-              <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 10 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 5 ? 'warning' : 'normal'}`} title="Times you switched context today — 0–4 normal, 5–9 fragmented attention, 10+ task-hopping">{contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0}x</span>
-            </div>
-          </div>
           </div>
 
           {/* Focus Checklist */}
@@ -3555,53 +3579,59 @@ function App() {
             style={{ order: rightPaneOrder.indexOf('focusChecklist') }}
             onDragOver={(e) => handlePaneDragOver(e, 'focusChecklist')}
             onDrop={(e) => handlePaneDrop(e, 'focusChecklist', 'right')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'focusChecklist')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
-          <div className="focus-checklist-section">
-            <div className="focus-checklist-header">
-              <span className="focus-checklist-label">Protect your focus</span>
-              <button
-                className="focus-checklist-reset"
-                onClick={() => {
-                  const defaults = { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false, browsersClosed: false }
-                  setFocusChecklist(defaults)
-                  saveFocusChecklist(defaults)
-                }}
-                title="Reset all protections to default"
-                disabled={!Object.values(focusChecklist).some(Boolean)}
-              ><Trash2 size={14} /></button>
+            <div className="focus-checklist-section">
+              <div className="focus-checklist-header">
+                <span className="focus-checklist-label">Protect your focus</span>
+                <button
+                  className="focus-checklist-reset"
+                  onClick={() => {
+                    const defaults = { phoneSilenced: false, alertsMuted: false, wifiOff: false, monitorOff: false, musicOn: false, notificationsOff: false, doorClosed: false, messagesOff: false, browsersClosed: false }
+                    setFocusChecklist(defaults)
+                    saveFocusChecklist(defaults)
+                  }}
+                  title="Reset all protections to default"
+                  disabled={!Object.values(focusChecklist).some(Boolean)}
+                ><Trash2 size={14} /></button>
+              </div>
+              <div className="focus-checklist-items">
+                {focusOrder.map((key, index) => {
+                  const cfg = FOCUS_ITEMS_CONFIG[key]
+                  if (!cfg) return null
+                  const isOn = focusChecklist[key]
+                  const Icon = isOn ? cfg.onIcon : cfg.offIcon
+                  return (
+                    <button
+                      key={key}
+                      className={`focus-checklist-btn ${isOn ? 'on' : 'off'}${focusDragIndex === index ? ' dragging' : ''}${focusDragOverIndex === index && focusDragIndex !== index ? ' drag-over' : ''}`}
+                      onClick={() => toggleFocusItem(key)}
+                      data-tooltip={isOn ? cfg.onTip : cfg.offTip}
+                      onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
+                      draggable
+                      onDragStart={(e) => handleFocusDragStart(e, index)}
+                      onDragOver={(e) => handleFocusDragOver(e, index)}
+                      onDrop={(e) => handleFocusDrop(e, index)}
+                      onDragEnd={handleFocusDragEnd}
+                    >
+                      <Icon size={28} />
+                    </button>
+                  )
+                })}
+              </div>
+              <div
+                className={`focus-tooltip ${focusTooltip.visible ? 'visible' : ''} ${focusTooltip.type}`}
+                style={{ top: focusTooltip.y, left: focusTooltip.x, transform: 'translate(-50%, -100%)' }}
+              >
+                {focusTooltip.text}
+              </div>
             </div>
-            <div className="focus-checklist-items">
-              {focusOrder.map((key, index) => {
-                const cfg = FOCUS_ITEMS_CONFIG[key]
-                if (!cfg) return null
-                const isOn = focusChecklist[key]
-                const Icon = isOn ? cfg.onIcon : cfg.offIcon
-                return (
-                  <button
-                    key={key}
-                    className={`focus-checklist-btn ${isOn ? 'on' : 'off'}${focusDragIndex === index ? ' dragging' : ''}${focusDragOverIndex === index && focusDragIndex !== index ? ' drag-over' : ''}`}
-                    onClick={() => toggleFocusItem(key)}
-                    data-tooltip={isOn ? cfg.onTip : cfg.offTip}
-                    onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
-                    draggable
-                    onDragStart={(e) => handleFocusDragStart(e, index)}
-                    onDragOver={(e) => handleFocusDragOver(e, index)}
-                    onDrop={(e) => handleFocusDrop(e, index)}
-                    onDragEnd={handleFocusDragEnd}
-                  >
-                    <Icon size={28} />
-                  </button>
-                )
-              })}
-            </div>
-            <div
-              className={`focus-tooltip ${focusTooltip.visible ? 'visible' : ''} ${focusTooltip.type}`}
-              style={{ top: focusTooltip.y, left: focusTooltip.x, transform: 'translate(-50%, -100%)' }}
-            >
-              {focusTooltip.text}
-            </div>
-          </div>
           </div>
 
           {/* Energy Level Tracker */}
@@ -3609,60 +3639,66 @@ function App() {
             style={{ order: rightPaneOrder.indexOf('mentalBandwidth') }}
             onDragOver={(e) => handlePaneDragOver(e, 'mentalBandwidth')}
             onDrop={(e) => handlePaneDrop(e, 'mentalBandwidth', 'right')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'mentalBandwidth')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
-          <div className="energy-tracker-section">
-            <div className="energy-tracker-header">
-              <span className="energy-tracker-label">Energy levels</span>
-            </div>
-            <div className="energy-tracker-content">
-              <div className="energy-toggle-group">
-                {[['high', 'High'], ['medium', 'Medium'], ['low', 'Low']].map(([level, label]) => (
+            <div className="energy-tracker-section">
+              <div className="energy-tracker-header">
+                <span className="energy-tracker-label">Energy levels</span>
+              </div>
+              <div className="energy-tracker-content">
+                <div className="energy-toggle-group">
+                  {[['high', 'High'], ['medium', 'Medium'], ['low', 'Low']].map(([level, label]) => (
+                    <button
+                      key={level}
+                      className={`energy-toggle-btn ${level} ${todayEnergy[String(currentHour)] === level ? 'active' : ''}`}
+                      onClick={() => setEnergyLevel(level)}
+                    >{label}</button>
+                  ))}
                   <button
-                    key={level}
-                    className={`energy-toggle-btn ${level} ${todayEnergy[String(currentHour)] === level ? 'active' : ''}`}
-                    onClick={() => setEnergyLevel(level)}
-                  >{label}</button>
-                ))}
-                <button
-                  className={`energy-toggle-btn unset ${!todayEnergy[String(currentHour)] ? 'active' : ''}`}
-                  onClick={() => {
-                    const today = getTodayString()
-                    const hour = String(currentHour)
-                    setEnergyLevels(prev => {
-                      const dayData = { ...prev[today] }
-                      delete dayData[hour]
-                      const updated = { ...prev, [today]: dayData }
-                      localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(updated))
-                      return updated
-                    })
-                  }}
-                >?</button>
-              </div>
-              <div className="energy-hour-window">
-                {energyWindowHours.map(h => {
-                  const hourStr = String(h)
-                  const todayLevel = todayEnergy[hourStr]
-                  const predictedLevel = energyAverages ? energyAverages[hourStr] : null
-                  const isCurrent = h === currentHour
-                  return (
-                    <div key={h} className={`energy-hour-slot ${isCurrent ? 'current' : ''}`}>
-                      <div className="energy-hour-label">{h < 0 ? h + 24 : h > 23 ? h - 24 : h}:00</div>
-                      <div className="energy-hour-bar">
-                        {todayLevel ? (
-                          <div className={`energy-bar-fill solid ${todayLevel}`} />
-                        ) : predictedLevel ? (
-                          <div className={`energy-bar-fill predicted ${predictedLevel}`} />
-                        ) : (
-                          <div className="energy-bar-fill empty" />
-                        )}
+                    className={`energy-toggle-btn unset ${!todayEnergy[String(currentHour)] ? 'active' : ''}`}
+                    onClick={() => {
+                      const today = getTodayString()
+                      const hour = String(currentHour)
+                      setEnergyLevels(prev => {
+                        const dayData = { ...prev[today] }
+                        delete dayData[hour]
+                        const updated = { ...prev, [today]: dayData }
+                        localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(updated))
+                        return updated
+                      })
+                    }}
+                  >?</button>
+                </div>
+                <div className="energy-hour-window">
+                  {energyWindowHours.map(h => {
+                    const hourStr = String(h)
+                    const todayLevel = todayEnergy[hourStr]
+                    const predictedLevel = energyAverages ? energyAverages[hourStr] : null
+                    const isCurrent = h === currentHour
+                    return (
+                      <div key={h} className={`energy-hour-slot ${isCurrent ? 'current' : ''}`}>
+                        <div className="energy-hour-label">{h < 0 ? h + 24 : h > 23 ? h - 24 : h}:00</div>
+                        <div className="energy-hour-bar">
+                          {todayLevel ? (
+                            <div className={`energy-bar-fill solid ${todayLevel}`} />
+                          ) : predictedLevel ? (
+                            <div className={`energy-bar-fill predicted ${predictedLevel}`} />
+                          ) : (
+                            <div className="energy-bar-fill empty" />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
 
           </div>
 
@@ -3671,84 +3707,90 @@ function App() {
             style={{ order: rightPaneOrder.indexOf('pomodoro') }}
             onDragOver={(e) => handlePaneDragOver(e, 'pomodoro')}
             onDrop={(e) => handlePaneDrop(e, 'pomodoro', 'right')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'pomodoro')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
-          <div className="pomodoro-section">
-            <div className="pomodoro-header">
-              <div className="pomodoro-header-left">
-                <span className="pomodoro-label">Pomodoro</span>
-                <div className="pomodoro-presets">
-                  {presets.map((p, i) => (
-                    <button
-                      key={i}
-                      className={`preset-btn ${i === activePresetIndex ? 'active' : ''}`}
-                      onClick={() => selectPreset(i)}
-                      onDoubleClick={() => {
-                        setEditingPresetIndex(i)
-                        setEditingPresetValues({ work: p.work, break: p.break })
-                      }}
-                      title="Double-click to edit"
-                    >
-                      {p.work}/{p.break}
-                    </button>
-                  ))}
+            <div className="pomodoro-section">
+              <div className="pomodoro-header">
+                <div className="pomodoro-header-left">
+                  <span className="pomodoro-label">Pomodoro</span>
+                  <div className="pomodoro-presets">
+                    {presets.map((p, i) => (
+                      <button
+                        key={i}
+                        className={`preset-btn ${i === activePresetIndex ? 'active' : ''}`}
+                        onClick={() => selectPreset(i)}
+                        onDoubleClick={() => {
+                          setEditingPresetIndex(i)
+                          setEditingPresetValues({ work: p.work, break: p.break })
+                        }}
+                        title="Double-click to edit"
+                      >
+                        {p.work}/{p.break}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className={`bell-toggle ${!bellEnabled ? 'muted' : ''}`}
+                    onClick={() => setBellEnabled(!bellEnabled)}
+                  >
+                    {bellEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+                  </button>
                 </div>
-                <button
-                  className={`bell-toggle ${!bellEnabled ? 'muted' : ''}`}
-                  onClick={() => setBellEnabled(!bellEnabled)}
-                >
-                  {bellEnabled ? <Bell size={16} /> : <BellOff size={16} />}
-                </button>
+                <span className={`pomodoro-timer ${timerState.isRunning ? 'running' : ''} ${timerState.isBreak ? 'break-time' : ''}`}>
+                  {formatTimer(timerState.timeRemaining)}
+                </span>
               </div>
-              <span className={`pomodoro-timer ${timerState.isRunning ? 'running' : ''} ${timerState.isBreak ? 'break-time' : ''}`}>
-                {formatTimer(timerState.timeRemaining)}
-              </span>
-            </div>
 
-            <div className="pomodoro-content">
-              <div
-                className={`drop-zone ${activeTask ? (timerState.isRunning ? 'has-task running' : 'has-task') : ''} ${timerState.isBreak ? 'break-mode' : ''}`}
-                onDragOver={handleDragOver}
-                onDrop={handleDropOnTimer}
-              >
-                <div className="drop-placeholder">
-                  <div className="drop-placeholder-icon">⏱</div>
-                  <div>Drag a task here to start working</div>
-                </div>
-                <div className="active-task-display">
-                  <div className="active-task-name">{activeTask?.title}</div>
-                  <div className="active-task-meta">{activeTask?.category}</div>
-                  <div className="active-task-time-logged">
-                    {formatTime(activeTask?.time_logged_minutes || 0)} logged
+              <div className="pomodoro-content">
+                <div
+                  className={`drop-zone ${activeTask ? (timerState.isRunning ? 'has-task running' : 'has-task') : ''} ${timerState.isBreak ? 'break-mode' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDropOnTimer}
+                >
+                  <div className="drop-placeholder">
+                    <div className="drop-placeholder-icon">⏱</div>
+                    <div>Drag a task here to start working</div>
+                  </div>
+                  <div className="active-task-display">
+                    <div className="active-task-name">{activeTask?.title}</div>
+                    <div className="active-task-meta">{activeTask?.category}</div>
+                    <div className="active-task-time-logged">
+                      {formatTime(activeTask?.time_logged_minutes || 0)} logged
+                    </div>
+                  </div>
+                  <div className="break-display">
+                    <div className="break-title">☕ Break Time</div>
+                    <div className="break-subtitle">Take a moment to rest</div>
                   </div>
                 </div>
-                <div className="break-display">
-                  <div className="break-title">☕ Break Time</div>
-                  <div className="break-subtitle">Take a moment to rest</div>
+
+                <div className="timer-controls">
+                  <button
+                    className={`timer-btn primary ${timerState.isRunning ? 'running' : ''} ${timerState.isBreak && timerState.isRunning ? 'break-running' : ''}`}
+                    onClick={toggleTimer}
+                  >
+                    {timerState.isBreak ? 'Skip' : timerState.isRunning ? 'Stop' : 'Start'}
+                  </button>
+                  <button className="timer-btn small" onClick={resetTimer}>Reset</button>
+                  {activeTask && (
+                    <button className="timer-btn small" onClick={clearActiveTask}>Clear</button>
+                  )}
                 </div>
               </div>
 
-              <div className="timer-controls">
-                <button
-                  className={`timer-btn primary ${timerState.isRunning ? 'running' : ''} ${timerState.isBreak && timerState.isRunning ? 'break-running' : ''}`}
-                  onClick={toggleTimer}
-                >
-                  {timerState.isBreak ? 'Skip' : timerState.isRunning ? 'Stop' : 'Start'}
-                </button>
-                <button className="timer-btn small" onClick={resetTimer}>Reset</button>
-                {activeTask && (
-                  <button className="timer-btn small" onClick={clearActiveTask}>Clear</button>
-                )}
+              <div className="timer-progress">
+                <div
+                  className={`timer-progress-bar ${timerState.isBreak ? 'break-time' : ''} ${timerState.timeRemaining === timerState.totalTime ? 'no-transition' : ''}`}
+                  style={{ width: `${((timerState.totalTime - timerState.timeRemaining) / timerState.totalTime) * 100}%` }}
+                />
               </div>
             </div>
-
-            <div className="timer-progress">
-              <div
-                className={`timer-progress-bar ${timerState.isBreak ? 'break-time' : ''} ${timerState.timeRemaining === timerState.totalTime ? 'no-transition' : ''}`}
-                style={{ width: `${((timerState.totalTime - timerState.timeRemaining) / timerState.totalTime) * 100}%` }}
-              />
-            </div>
-          </div>
 
           </div>
 
@@ -3757,162 +3799,168 @@ function App() {
             style={{ order: rightPaneOrder.indexOf('breakActivities') }}
             onDragOver={(e) => handlePaneDragOver(e, 'breakActivities')}
             onDrop={(e) => handlePaneDrop(e, 'breakActivities', 'right')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'breakActivities')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
-          <div className="break-activities-section">
-            <div className="break-activities-header">
-              <span className="break-activities-label">Break</span>
-              <button
-                className="break-activities-reset"
-                onClick={() => {
-                  setHiddenBreakActivities(new Set())
-                  localStorage.setItem(STORAGE_KEYS.BREAK_HIDDEN_ACTIVITIES, JSON.stringify([]))
-                }}
-                title="Restore hidden activities"
-                disabled={hiddenBreakActivities.size === 0}
-              ><Trash2 size={14} /></button>
-            </div>
-
-            <div className="break-content">
-              <div className="break-left">
-                <div className={`break-timer-display ${breakTimerRunning ? 'running' : ''}`}>
-                  <input
-                    type="text"
-                    className="break-timer-field"
-                    value={Math.ceil(breakTimeRemaining / 60)}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
-                      setBreakDuration(Math.min(val, 90) * 60)
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    maxLength={2}
-                  />
-                  <button
-                    className="break-timer-unit"
-                    onClick={() => {
-                      breakEndTimeRef.current = null
-                      setBreakTimerRunning(false)
-                      setBreakTimeRemaining(0)
-                    }}
-                    title="Reset timer"
-                  >
-                    <span className="break-timer-unit-text">min</span>
-                    <span className="break-timer-unit-reset">reset</span>
-                  </button>
-                </div>
-                <span className="break-timer-until">
-                  until {new Date(Date.now() + breakTimeRemaining * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                </span>
-                <div className="break-presets">
-                  {[1, 5].map(mins => (
-                    <button
-                      key={mins}
-                      className="break-preset-btn"
-                      onClick={() => {
-                        setBreakDuration(breakTimeRemaining + mins * 60)
-                      }}
-                    >+{mins}</button>
-                  ))}
-                  <button
-                    className="break-preset-btn break-snap-btn"
-                    onClick={() => {
-                      const now = new Date()
-                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
-                      const endHour = now.getHours() + Math.floor(endMin / 60)
-                      const endMinOfHour = endMin % 60
-                      const floored = Math.floor(endMinOfHour / 15) * 15
-                      const targetMin = floored === endMinOfHour ? endMinOfHour - 15 : floored
-                      const targetTotal = endHour * 60 + targetMin
-                      const nowTotal = now.getHours() * 60 + now.getMinutes()
-                      setBreakDuration(Math.max(0, targetTotal - nowTotal) * 60)
-                    }}
-                    title="Round down to previous quarter hour"
-                  >
-                    <ArrowBigLeftDash size={12} />
-                  </button>
-                  <button
-                    className="break-preset-btn break-snap-btn"
-                    onClick={() => {
-                      const now = new Date()
-                      const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
-                      const endHour = now.getHours() + Math.floor(endMin / 60)
-                      const endMinOfHour = endMin % 60
-                      const ceiled = Math.ceil(endMinOfHour / 15) * 15
-                      const targetMin = ceiled === endMinOfHour ? endMinOfHour + 15 : ceiled
-                      const targetTotal = endHour * 60 + targetMin
-                      const nowTotal = now.getHours() * 60 + now.getMinutes()
-                      setBreakDuration(Math.min((targetTotal - nowTotal) * 60, 90 * 60))
-                    }}
-                    title="Round up to next quarter hour"
-                  >
-                    <ArrowBigRightDash size={12} />
-                  </button>
-                </div>
+            <div className="break-activities-section">
+              <div className="break-activities-header">
+                <span className="break-activities-label">Break</span>
+                <button
+                  className="break-activities-reset"
+                  onClick={() => {
+                    setHiddenBreakActivities(new Set())
+                    localStorage.setItem(STORAGE_KEYS.BREAK_HIDDEN_ACTIVITIES, JSON.stringify([]))
+                  }}
+                  title="Restore hidden activities"
+                  disabled={hiddenBreakActivities.size === 0}
+                ><Trash2 size={14} /></button>
               </div>
-              <div className="break-activities-grid">
-                {breakActivities.map((activity, idx) => {
-                  if (!isBreakActivityEnabled(activity.file)) return null
-                  if (hiddenBreakActivities.has(activity.file)) return null
-                  const tooltip = getBreakTooltip(activity)
-                  return (
+
+              <div className="break-content">
+                <div className="break-left">
+                  <div className={`break-timer-display ${breakTimerRunning ? 'running' : ''}`}>
+                    <input
+                      type="text"
+                      className="break-timer-field"
+                      value={Math.ceil(breakTimeRemaining / 60)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
+                        setBreakDuration(Math.min(val, 90) * 60)
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      maxLength={2}
+                    />
                     <button
-                      key={activity.file}
-                      className={`break-activity-btn ${draggedBreakIdx === idx ? 'dragging' : ''}`}
-                      data-tooltip={tooltip}
-                      draggable
-                      onDragStart={(e) => {
-                        setDraggedBreakIdx(idx)
-                        e.dataTransfer.effectAllowed = 'move'
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault()
-                        if (draggedBreakIdx === null || draggedBreakIdx === idx) return
-                        const updated = [...breakActivities]
-                        const [moved] = updated.splice(draggedBreakIdx, 1)
-                        updated.splice(idx, 0, moved)
-                        setBreakActivities(updated)
-                        setDraggedBreakIdx(idx)
-                      }}
-                      onDragEnd={() => {
-                        setDraggedBreakIdx(null)
-                        localStorage.setItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER, JSON.stringify(breakActivities))
-                      }}
+                      className="break-timer-unit"
                       onClick={() => {
-                        if (timerState.isRunning && !timerState.isBreak) {
-                          showAlert('Pomodoro Running', 'Stop the current Pomodoro before starting a break.')
-                          return
-                        }
-                        setActiveBreak({ file: activity.file, name: tooltip, totalTime: breakTimeRemaining })
-                        if (!breakTimerRunning && breakTimeRemaining > 0) {
-                          ensureAudioContext()
-                          breakEndTimeRef.current = Date.now() + breakTimeRemaining * 1000
-                          setBreakTimerRunning(true)
-                        }
+                        breakEndTimeRef.current = null
+                        setBreakTimerRunning(false)
+                        setBreakTimeRemaining(0)
                       }}
+                      title="Reset timer"
                     >
-                      <span
-                        className="break-activity-remove"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const updated = new Set(hiddenBreakActivities)
-                          updated.add(activity.file)
-                          setHiddenBreakActivities(updated)
-                          localStorage.setItem(STORAGE_KEYS.BREAK_HIDDEN_ACTIVITIES, JSON.stringify([...updated]))
-                        }}
-                        title={`Hide ${tooltip}`}
-                      ><X size={10} strokeWidth={3} /></span>
-                      <img
-                        src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
-                        alt={activity.name}
-                        className="break-activity-icon"
-                      />
+                      <span className="break-timer-unit-text">min</span>
+                      <span className="break-timer-unit-reset">reset</span>
                     </button>
-                  )
-                })}
+                  </div>
+                  <span className="break-timer-until">
+                    until {new Date(Date.now() + breakTimeRemaining * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  </span>
+                  <div className="break-presets">
+                    {[1, 5].map(mins => (
+                      <button
+                        key={mins}
+                        className="break-preset-btn"
+                        onClick={() => {
+                          setBreakDuration(breakTimeRemaining + mins * 60)
+                        }}
+                      >+{mins}</button>
+                    ))}
+                    <button
+                      className="break-preset-btn break-snap-btn"
+                      onClick={() => {
+                        const now = new Date()
+                        const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
+                        const endHour = now.getHours() + Math.floor(endMin / 60)
+                        const endMinOfHour = endMin % 60
+                        const floored = Math.floor(endMinOfHour / 15) * 15
+                        const targetMin = floored === endMinOfHour ? endMinOfHour - 15 : floored
+                        const targetTotal = endHour * 60 + targetMin
+                        const nowTotal = now.getHours() * 60 + now.getMinutes()
+                        setBreakDuration(Math.max(0, targetTotal - nowTotal) * 60)
+                      }}
+                      title="Round down to previous quarter hour"
+                    >
+                      <ArrowBigLeftDash size={12} />
+                    </button>
+                    <button
+                      className="break-preset-btn break-snap-btn"
+                      onClick={() => {
+                        const now = new Date()
+                        const endMin = now.getMinutes() + Math.ceil(breakTimeRemaining / 60)
+                        const endHour = now.getHours() + Math.floor(endMin / 60)
+                        const endMinOfHour = endMin % 60
+                        const ceiled = Math.ceil(endMinOfHour / 15) * 15
+                        const targetMin = ceiled === endMinOfHour ? endMinOfHour + 15 : ceiled
+                        const targetTotal = endHour * 60 + targetMin
+                        const nowTotal = now.getHours() * 60 + now.getMinutes()
+                        setBreakDuration(Math.min((targetTotal - nowTotal) * 60, 90 * 60))
+                      }}
+                      title="Round up to next quarter hour"
+                    >
+                      <ArrowBigRightDash size={12} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="break-activities-grid">
+                  {breakActivities.map((activity, idx) => {
+                    if (!isBreakActivityEnabled(activity.file)) return null
+                    if (hiddenBreakActivities.has(activity.file)) return null
+                    const tooltip = getBreakTooltip(activity)
+                    return (
+                      <button
+                        key={activity.file}
+                        className={`break-activity-btn ${draggedBreakIdx === idx ? 'dragging' : ''}`}
+                        data-tooltip={tooltip}
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedBreakIdx(idx)
+                          e.dataTransfer.effectAllowed = 'move'
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          if (draggedBreakIdx === null || draggedBreakIdx === idx) return
+                          const updated = [...breakActivities]
+                          const [moved] = updated.splice(draggedBreakIdx, 1)
+                          updated.splice(idx, 0, moved)
+                          setBreakActivities(updated)
+                          setDraggedBreakIdx(idx)
+                        }}
+                        onDragEnd={() => {
+                          setDraggedBreakIdx(null)
+                          localStorage.setItem(STORAGE_KEYS.BREAK_ACTIVITIES_ORDER, JSON.stringify(breakActivities))
+                        }}
+                        onClick={() => {
+                          if (timerState.isRunning && !timerState.isBreak) {
+                            showAlert('Pomodoro Running', 'Stop the current Pomodoro before starting a break.')
+                            return
+                          }
+                          setActiveBreak({ file: activity.file, name: tooltip, totalTime: breakTimeRemaining })
+                          if (!breakTimerRunning && breakTimeRemaining > 0) {
+                            ensureAudioContext()
+                            breakEndTimeRef.current = Date.now() + breakTimeRemaining * 1000
+                            setBreakTimerRunning(true)
+                          }
+                        }}
+                      >
+                        <span
+                          className="break-activity-remove"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const updated = new Set(hiddenBreakActivities)
+                            updated.add(activity.file)
+                            setHiddenBreakActivities(updated)
+                            localStorage.setItem(STORAGE_KEYS.BREAK_HIDDEN_ACTIVITIES, JSON.stringify([...updated]))
+                          }}
+                          title={`Hide ${tooltip}`}
+                        ><X size={10} strokeWidth={3} /></span>
+                        <img
+                          src={`${import.meta.env.BASE_URL}icons/${activity.file}`}
+                          alt={activity.name}
+                          className="break-activity-icon"
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-
           </div>
 
           {/* Brain Dump */}
@@ -3920,120 +3968,126 @@ function App() {
             style={{ order: rightPaneOrder.indexOf('brainDump') }}
             onDragOver={(e) => handlePaneDragOver(e, 'brainDump')}
             onDrop={(e) => handlePaneDrop(e, 'brainDump', 'right')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'brainDump')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
-          <div className="brain-dump-section">
-            <div className="brain-dump-header">
-              <div className="brain-dump-quick">
-                {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
+            <div className="brain-dump-section">
+              <div className="brain-dump-header">
+                <div className="brain-dump-quick">
+                  {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
+                    <button
+                      className="brain-dump-mic-btn"
+                      onClick={() => setRecordingModalOpen(true)}
+                      title="Voice dump — speak your thoughts"
+                    >
+                      <MicVocal size={14} />
+                    </button>
+                  )}
+                  <input
+                    type="text"
+                    className="brain-dump-quick-input"
+                    placeholder="Type it, let it go, refocus."
+                    value={brainDumpQuick}
+                    onChange={(e) => setBrainDumpQuick(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && brainDumpQuick.trim()) {
+                        const updated = brainDump ? brainDump + '\n\n' + brainDumpQuick.trim() : brainDumpQuick.trim()
+                        setBrainDump(updated)
+                        localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, updated)
+                        setBrainDumpQuick('')
+                      }
+                    }}
+                  />
                   <button
-                    className="brain-dump-mic-btn"
-                    onClick={() => setRecordingModalOpen(true)}
-                    title="Voice dump — speak your thoughts"
+                    className="brain-dump-quick-btn"
+                    onClick={() => {
+                      if (brainDumpQuick.trim()) {
+                        const updated = brainDump ? brainDump + '\n\n' + brainDumpQuick.trim() : brainDumpQuick.trim()
+                        setBrainDump(updated)
+                        localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, updated)
+                        setBrainDumpQuick('')
+                      }
+                    }}
+                    title="Store anything that is on your mind and keeps you from focussing"
+                  >Store</button>
+                </div>
+              </div>
+              <textarea
+                ref={brainDumpTextareaRef}
+                cols="1"
+                placeholder="Offload your thoughts here..."
+                value={brainDump}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setBrainDump(val)
+                  if (!val.trim() && brainDumpTextareaRef.current) {
+                    brainDumpTextareaRef.current.style.height = '150px'
+                  }
+                  clearTimeout(brainDumpTimerRef.current)
+                  brainDumpTimerRef.current = setTimeout(() => {
+                    localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, val)
+                  }, 1000)
+                }}
+                onBlur={() => {
+                  clearTimeout(brainDumpTimerRef.current)
+                  const trimmed = brainDump.split('\n').map(line => line.trim()).join('\n')
+                  setBrainDump(trimmed)
+                  localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, trimmed)
+                }}
+              />
+              {brainDump && (
+                <div className="brain-dump-actions">
+                  <button
+                    className="brain-dump-action-btn"
+                    onClick={() => {
+                      const ta = brainDumpTextareaRef.current
+                      if (ta) {
+                        ta.style.height = 'auto'
+                        ta.style.height = (ta.scrollHeight + 16) + 'px'
+                        const section = ta.closest('.brain-dump-section')
+                        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }
+                    }}
+                    title="Expand to fit content"
                   >
-                    <MicVocal size={14} />
+                    <Maximize2 size={14} />
                   </button>
-                )}
-                <input
-                  type="text"
-                  className="brain-dump-quick-input"
-                  placeholder="Type it, let it go, refocus."
-                  value={brainDumpQuick}
-                  onChange={(e) => setBrainDumpQuick(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && brainDumpQuick.trim()) {
-                      const updated = brainDump ? brainDump + '\n\n' + brainDumpQuick.trim() : brainDumpQuick.trim()
-                      setBrainDump(updated)
-                      localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, updated)
-                      setBrainDumpQuick('')
-                    }
-                  }}
-                />
-                <button
-                  className="brain-dump-quick-btn"
-                  onClick={() => {
-                    if (brainDumpQuick.trim()) {
-                      const updated = brainDump ? brainDump + '\n\n' + brainDumpQuick.trim() : brainDumpQuick.trim()
-                      setBrainDump(updated)
-                      localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, updated)
-                      setBrainDumpQuick('')
-                    }
-                  }}
-                  title="Store anything that is on your mind and keeps you from focussing"
-                >Store</button>
-              </div>
+                  <button
+                    className="brain-dump-action-btn"
+                    onClick={() => {
+                      const ta = brainDumpTextareaRef.current
+                      if (ta) ta.style.height = '150px'
+                    }}
+                    title="Shrink to default height"
+                  >
+                    <Minimize2 size={14} />
+                  </button>
+                  <button
+                    className={`brain-dump-action-btn ${brainDumpCopied ? 'copied' : ''}`}
+                    onClick={() => {
+                      navigator.clipboard.writeText(brainDump)
+                      setBrainDumpCopied(true)
+                      setTimeout(() => setBrainDumpCopied(false), 1500)
+                    }}
+                    title="Copy to clipboard"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    className="brain-dump-action-btn danger"
+                    onClick={() => setBrainDumpClearConfirmOpen(true)}
+                    title="Clear brain dump"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
             </div>
-            <textarea
-              ref={brainDumpTextareaRef}
-              cols="1"
-              placeholder="Offload your thoughts here..."
-              value={brainDump}
-              onChange={(e) => {
-                const val = e.target.value
-                setBrainDump(val)
-                if (!val.trim() && brainDumpTextareaRef.current) {
-                  brainDumpTextareaRef.current.style.height = '150px'
-                }
-                clearTimeout(brainDumpTimerRef.current)
-                brainDumpTimerRef.current = setTimeout(() => {
-                  localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, val)
-                }, 1000)
-              }}
-              onBlur={() => {
-                clearTimeout(brainDumpTimerRef.current)
-                const trimmed = brainDump.split('\n').map(line => line.trim()).join('\n')
-                setBrainDump(trimmed)
-                localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, trimmed)
-              }}
-            />
-            {brainDump && (
-              <div className="brain-dump-actions">
-                <button
-                  className="brain-dump-action-btn"
-                  onClick={() => {
-                    const ta = brainDumpTextareaRef.current
-                    if (ta) {
-                      ta.style.height = 'auto'
-                      ta.style.height = (ta.scrollHeight + 16) + 'px'
-                      const section = ta.closest('.brain-dump-section')
-                      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                    }
-                  }}
-                  title="Expand to fit content"
-                >
-                  <Maximize2 size={14} />
-                </button>
-                <button
-                  className="brain-dump-action-btn"
-                  onClick={() => {
-                    const ta = brainDumpTextareaRef.current
-                    if (ta) ta.style.height = '150px'
-                  }}
-                  title="Shrink to default height"
-                >
-                  <Minimize2 size={14} />
-                </button>
-                <button
-                  className={`brain-dump-action-btn ${brainDumpCopied ? 'copied' : ''}`}
-                  onClick={() => {
-                    navigator.clipboard.writeText(brainDump)
-                    setBrainDumpCopied(true)
-                    setTimeout(() => setBrainDumpCopied(false), 1500)
-                  }}
-                  title="Copy to clipboard"
-                >
-                  <Copy size={14} />
-                </button>
-                <button
-                  className="brain-dump-action-btn danger"
-                  onClick={() => setBrainDumpClearConfirmOpen(true)}
-                  title="Clear brain dump"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            )}
-          </div>
           </div>
 
         </section>
