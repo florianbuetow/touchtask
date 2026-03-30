@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This repository does not currently use release tags, so entries are grouped by date and major update scope.
 
+## 2026-03-30
+
+### Added
+- **Pane reorder** — drag and drop panes within the Task Tracking and Cognitive Load columns to rearrange their layout; order persists across page reloads via localStorage
+- **Drop indicator** — green horizontal line shows exactly where a dragged pane will land during drag-and-drop reorder
+- **Dynamic toggle icons** — column header toggle buttons automatically reorder to match the current pane layout
+
+### Fixed
+- Uniform pane spacing — moved margin responsibility from individual pane styles to the wrapper level so all panes maintain consistent gaps regardless of reorder position
+
 ## 2026-03-28
 
 ### Added

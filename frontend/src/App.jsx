@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -163,7 +163,11 @@ const STORAGE_KEYS = {
   BREAK_HIDDEN_ACTIVITIES: 'touchtask_break_hidden_activities',
   BREAK_ACTIVITY_SETTINGS: 'touchtask_break_activity_settings',
   PANE_VISIBILITY: 'touchtask_pane_visibility',
+  PANE_ORDER: 'touchtask_pane_order',
 }
+
+const DEFAULT_MIDDLE_PANE_ORDER = ['reminders', 'themes', 'kanban']
+const DEFAULT_RIGHT_PANE_ORDER = ['currentFocus', 'focusChecklist', 'mentalBandwidth', 'pomodoro', 'breakActivities', 'brainDump']
 
 const getDefaultSettings = () => ({
   dayStartsAt: '00:00',
@@ -912,6 +916,40 @@ function App() {
       themes: showThemes,
     }))
   }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes])
+
+  // Pane ordering state
+  const savedPaneOrder = useMemo(() => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PANE_ORDER)
+      return data ? JSON.parse(data) : {}
+    } catch { return {} }
+  }, [])
+  const [middlePaneOrder, setMiddlePaneOrder] = useState(() => {
+    if (savedPaneOrder.middle) {
+      const valid = savedPaneOrder.middle.filter(id => DEFAULT_MIDDLE_PANE_ORDER.includes(id))
+      const missing = DEFAULT_MIDDLE_PANE_ORDER.filter(id => !valid.includes(id))
+      return [...valid, ...missing]
+    }
+    return DEFAULT_MIDDLE_PANE_ORDER
+  })
+  const [rightPaneOrder, setRightPaneOrder] = useState(() => {
+    if (savedPaneOrder.right) {
+      const valid = savedPaneOrder.right.filter(id => DEFAULT_RIGHT_PANE_ORDER.includes(id))
+      const missing = DEFAULT_RIGHT_PANE_ORDER.filter(id => !valid.includes(id))
+      return [...valid, ...missing]
+    }
+    return DEFAULT_RIGHT_PANE_ORDER
+  })
+  const [paneDragId, setPaneDragId] = useState(null)
+  const [paneDragOverId, setPaneDragOverId] = useState(null)
+  const [paneDragPos, setPaneDragPos] = useState(null) // 'before' or 'after'
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PANE_ORDER, JSON.stringify({
+      middle: middlePaneOrder,
+      right: rightPaneOrder,
+    }))
+  }, [middlePaneOrder, rightPaneOrder])
 
   const breakEndTimeRef = useRef(null)
   const [breakTimeRemaining, setBreakTimeRemaining] = useState(() => {
@@ -2722,6 +2760,52 @@ function App() {
     setFocusDragOverIndex(null)
   }
 
+  // Pane reorder DnD handlers
+  const handlePaneDragStart = (e, paneId) => {
+    e.stopPropagation()
+    setPaneDragId(paneId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/x-pane', paneId)
+    const wrapper = e.target.closest('.pane-wrapper')
+    if (wrapper) e.dataTransfer.setDragImage(wrapper, wrapper.offsetWidth / 2, 10)
+  }
+
+  const handlePaneDragOver = (e, paneId) => {
+    if (!e.dataTransfer.types.includes('application/x-pane')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pos = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after'
+    setPaneDragOverId(paneId)
+    setPaneDragPos(pos)
+  }
+
+  const handlePaneDrop = (e, targetId, column) => {
+    e.preventDefault()
+    if (paneDragId && paneDragId !== targetId) {
+      const setOrder = column === 'middle' ? setMiddlePaneOrder : setRightPaneOrder
+      setOrder(prev => {
+        const updated = [...prev]
+        const fromIdx = updated.indexOf(paneDragId)
+        updated.splice(fromIdx, 1)
+        let toIdx = updated.indexOf(targetId)
+        if (toIdx === -1) return prev
+        if (paneDragPos === 'after') toIdx += 1
+        updated.splice(toIdx, 0, paneDragId)
+        return updated
+      })
+    }
+    setPaneDragId(null)
+    setPaneDragOverId(null)
+    setPaneDragPos(null)
+  }
+
+  const handlePaneDragEnd = () => {
+    setPaneDragId(null)
+    setPaneDragOverId(null)
+    setPaneDragPos(null)
+  }
+
   const toggleTimer = useCallback(() => {
     if (timerState.isBreak) {
       // Skip break
@@ -3114,6 +3198,21 @@ function App() {
     year: 'numeric'
   }).toUpperCase()
 
+  // Pane toggle configs (keyed by pane ID, used by dynamic toggle icon rendering)
+  const middleToggles = {
+    reminders: { icon: List, show: showReminders, setShow: setShowReminders, showTitle: "Show don't forget", hideTitle: "Hide don't forget" },
+    themes: { icon: SwatchBook, show: showThemes, setShow: setShowThemes, showTitle: 'Show themes', hideTitle: 'Hide themes' },
+    kanban: { icon: Columns4, show: showKanban, setShow: setShowKanban, showTitle: 'Show kanban board', hideTitle: 'Hide kanban board' },
+  }
+  const rightToggles = {
+    currentFocus: { icon: Crosshair, show: showCurrentFocus, setShow: setShowCurrentFocus, showTitle: 'Show current focus', hideTitle: 'Hide current focus' },
+    focusChecklist: { icon: ShieldCheck, show: showFocusChecklist, setShow: setShowFocusChecklist, showTitle: 'Show protect your focus', hideTitle: 'Hide protect your focus' },
+    mentalBandwidth: { icon: Brain, show: showMentalBandwidth, setShow: setShowMentalBandwidth, showTitle: 'Show mental bandwidth', hideTitle: 'Hide mental bandwidth' },
+    pomodoro: { icon: Timer, show: showPomodoro, setShow: setShowPomodoro, showTitle: 'Show pomodoro timer', hideTitle: 'Hide pomodoro timer' },
+    breakActivities: { icon: Coffee, show: showBreakActivities, setShow: setShowBreakActivities, showTitle: 'Show break activities', hideTitle: 'Hide break activities' },
+    brainDump: { icon: NotebookPen, show: showBrainDump, setShow: setShowBrainDump, showTitle: 'Show brain dump', hideTitle: 'Hide brain dump' },
+  }
+
   return (
     <>
       {/* Hidden file input for load */}
@@ -3270,33 +3369,27 @@ function App() {
             <div className="section-meta">
               <span className="habits-stats">{(kanbanTasks?.tasks.filter(t => t.column === 'done').length || 0)} of {(kanbanTasks?.tasks.filter(t => t.column !== 'backlog').length || 0) + reminders.length} complete</span>
               <div className="section-meta-buttons">
-                <button
-                  className={`focus-toggle ${!showReminders ? 'disabled' : ''}`}
-                  onClick={() => setShowReminders(!showReminders)}
-                  title={showReminders ? "Hide don't forget" : "Show don't forget"}
-                >
-                  <List size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showThemes ? 'disabled' : ''}`}
-                  onClick={() => setShowThemes(!showThemes)}
-                  title={showThemes ? 'Hide themes' : 'Show themes'}
-                >
-                  <SwatchBook size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showKanban ? 'disabled' : ''}`}
-                  onClick={() => setShowKanban(!showKanban)}
-                  title={showKanban ? 'Hide kanban board' : 'Show kanban board'}
-                >
-                  <Columns4 size={14} />
-                </button>
+                {middlePaneOrder.map(id => {
+                  const t = middleToggles[id]
+                  if (!t) return null
+                  const Icon = t.icon
+                  return (
+                    <button key={id} className={`focus-toggle ${!t.show ? 'disabled' : ''}`} onClick={() => t.setShow(s => !s)} title={t.show ? t.hideTitle : t.showTitle}>
+                      <Icon size={14} />
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </header>
 
           {/* Don't Forget Section */}
-          <div className={!showReminders ? 'hidden' : ''}>
+          <div className={`pane-wrapper${!showReminders ? ' hidden' : ''}${paneDragId === 'reminders' ? ' pane-dragging' : ''}${paneDragOverId === 'reminders' && paneDragId !== 'reminders' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: middlePaneOrder.indexOf('reminders') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'reminders')}
+            onDrop={(e) => handlePaneDrop(e, 'reminders', 'middle')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'reminders')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
             <RemindersSection
               reminders={reminders}
               addReminder={addReminder}
@@ -3321,7 +3414,12 @@ function App() {
           </div>
 
           {/* Themes Section */}
-          <div className={!showThemes ? 'hidden' : ''}>
+          <div className={`pane-wrapper${!showThemes ? ' hidden' : ''}${paneDragId === 'themes' ? ' pane-dragging' : ''}${paneDragOverId === 'themes' && paneDragId !== 'themes' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: middlePaneOrder.indexOf('themes') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'themes')}
+            onDrop={(e) => handlePaneDrop(e, 'themes', 'middle')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'themes')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
             <ThemesSection
               themes={themes}
               projectRegistry={projectRegistry}
@@ -3332,25 +3430,32 @@ function App() {
           </div>
 
           {/* Kanban Board */}
-          <div className={`kanban-card ${!showKanban ? 'hidden' : ''}`}>
-            <div className="kanban-board">
-              {['backlog', 'week', 'progress', 'done'].map(column => (
-                <KanbanColumn
-                  key={column}
-                  column={column}
-                  tasks={getTasksByColumn(column)}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDropOnColumn}
-                  onAddClick={() => {
-                    setEditingTask(null)
-                    setTaskModalColumn(column)
-                    setTaskModalOpen(true)
-                  }}
-                  onEditTask={openEditTask}
-                  onClearClick={column === 'done' ? () => setClearConfirmOpen(true) : null}
-                />
-              ))}
+          <div className={`pane-wrapper${!showKanban ? ' hidden' : ''}${paneDragId === 'kanban' ? ' pane-dragging' : ''}${paneDragOverId === 'kanban' && paneDragId !== 'kanban' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: middlePaneOrder.indexOf('kanban') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'kanban')}
+            onDrop={(e) => handlePaneDrop(e, 'kanban', 'middle')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'kanban')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+            <div className="kanban-card">
+              <div className="kanban-board">
+                {['backlog', 'week', 'progress', 'done'].map(column => (
+                  <KanbanColumn
+                    key={column}
+                    column={column}
+                    tasks={getTasksByColumn(column)}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDropOnColumn}
+                    onAddClick={() => {
+                      setEditingTask(null)
+                      setTaskModalColumn(column)
+                      setTaskModalOpen(true)
+                    }}
+                    onEditTask={openEditTask}
+                    onClearClick={column === 'done' ? () => setClearConfirmOpen(true) : null}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 
@@ -3363,54 +3468,28 @@ function App() {
             <div className="section-meta">
               <span className="section-subtitle">Mental bandwidth</span>
               <div className="section-meta-buttons">
-                <button
-                  className={`focus-toggle ${!showCurrentFocus ? 'disabled' : ''}`}
-                  onClick={() => setShowCurrentFocus(!showCurrentFocus)}
-                  title={showCurrentFocus ? 'Hide current focus' : 'Show current focus'}
-                >
-                  <Crosshair size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showFocusChecklist ? 'disabled' : ''}`}
-                  onClick={() => setShowFocusChecklist(!showFocusChecklist)}
-                  title={showFocusChecklist ? 'Hide protect your focus' : 'Show protect your focus'}
-                >
-                  <ShieldCheck size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showMentalBandwidth ? 'disabled' : ''}`}
-                  onClick={() => setShowMentalBandwidth(!showMentalBandwidth)}
-                  title={showMentalBandwidth ? 'Hide mental bandwidth' : 'Show mental bandwidth'}
-                >
-                  <Brain size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showPomodoro ? 'disabled' : ''}`}
-                  onClick={() => setShowPomodoro(!showPomodoro)}
-                  title={showPomodoro ? 'Hide pomodoro timer' : 'Show pomodoro timer'}
-                >
-                  <Timer size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showBreakActivities ? 'disabled' : ''}`}
-                  onClick={() => setShowBreakActivities(!showBreakActivities)}
-                  title={showBreakActivities ? 'Hide break activities' : 'Show break activities'}
-                >
-                  <Coffee size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showBrainDump ? 'disabled' : ''}`}
-                  onClick={() => setShowBrainDump(!showBrainDump)}
-                  title={showBrainDump ? 'Hide brain dump' : 'Show brain dump'}
-                >
-                  <NotebookPen size={14} />
-                </button>
+                {rightPaneOrder.map(id => {
+                  const t = rightToggles[id]
+                  if (!t) return null
+                  const Icon = t.icon
+                  return (
+                    <button key={id} className={`focus-toggle ${!t.show ? 'disabled' : ''}`} onClick={() => t.setShow(s => !s)} title={t.show ? t.hideTitle : t.showTitle}>
+                      <Icon size={14} />
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </header>
 
           {/* Current Focus */}
-          <div className={`current-focus-section ${!showCurrentFocus ? 'hidden' : ''}`}>
+          <div className={`pane-wrapper${!showCurrentFocus ? ' hidden' : ''}${paneDragId === 'currentFocus' ? ' pane-dragging' : ''}${paneDragOverId === 'currentFocus' && paneDragId !== 'currentFocus' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: rightPaneOrder.indexOf('currentFocus') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'currentFocus')}
+            onDrop={(e) => handlePaneDrop(e, 'currentFocus', 'right')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'currentFocus')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+          <div className="current-focus-section">
             <div className="current-focus-header">
               <span className="current-focus-label">Current focus</span>
               <button
@@ -3469,9 +3548,16 @@ function App() {
               <span className={`context-switch-counter ${(contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 10 ? 'critical' : (contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0) >= 5 ? 'warning' : 'normal'}`} title="Times you switched context today — 0–4 normal, 5–9 fragmented attention, 10+ task-hopping">{contextSwitchData.date === getTodayString() ? contextSwitchData.switched : 0}x</span>
             </div>
           </div>
+          </div>
 
           {/* Focus Checklist */}
-          <div className={`focus-checklist-section ${!showFocusChecklist ? 'hidden' : ''}`}>
+          <div className={`pane-wrapper${!showFocusChecklist ? ' hidden' : ''}${paneDragId === 'focusChecklist' ? ' pane-dragging' : ''}${paneDragOverId === 'focusChecklist' && paneDragId !== 'focusChecklist' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: rightPaneOrder.indexOf('focusChecklist') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'focusChecklist')}
+            onDrop={(e) => handlePaneDrop(e, 'focusChecklist', 'right')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'focusChecklist')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+          <div className="focus-checklist-section">
             <div className="focus-checklist-header">
               <span className="focus-checklist-label">Protect your focus</span>
               <button
@@ -3516,9 +3602,16 @@ function App() {
               {focusTooltip.text}
             </div>
           </div>
+          </div>
 
           {/* Energy Level Tracker */}
-          <div className={`energy-tracker-section ${!showMentalBandwidth ? 'hidden' : ''}`}>
+          <div className={`pane-wrapper${!showMentalBandwidth ? ' hidden' : ''}${paneDragId === 'mentalBandwidth' ? ' pane-dragging' : ''}${paneDragOverId === 'mentalBandwidth' && paneDragId !== 'mentalBandwidth' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: rightPaneOrder.indexOf('mentalBandwidth') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'mentalBandwidth')}
+            onDrop={(e) => handlePaneDrop(e, 'mentalBandwidth', 'right')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'mentalBandwidth')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+          <div className="energy-tracker-section">
             <div className="energy-tracker-header">
               <span className="energy-tracker-label">Energy levels</span>
             </div>
@@ -3571,8 +3664,16 @@ function App() {
             </div>
           </div>
 
+          </div>
+
           {/* Pomodoro Section */}
-          <div className={`pomodoro-section ${!showPomodoro ? 'hidden' : ''}`}>
+          <div className={`pane-wrapper${!showPomodoro ? ' hidden' : ''}${paneDragId === 'pomodoro' ? ' pane-dragging' : ''}${paneDragOverId === 'pomodoro' && paneDragId !== 'pomodoro' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: rightPaneOrder.indexOf('pomodoro') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'pomodoro')}
+            onDrop={(e) => handlePaneDrop(e, 'pomodoro', 'right')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'pomodoro')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+          <div className="pomodoro-section">
             <div className="pomodoro-header">
               <div className="pomodoro-header-left">
                 <span className="pomodoro-label">Pomodoro</span>
@@ -3649,8 +3750,16 @@ function App() {
             </div>
           </div>
 
+          </div>
+
           {/* Break Activities */}
-          <div className={`break-activities-section ${!showBreakActivities ? 'hidden' : ''}`}>
+          <div className={`pane-wrapper${!showBreakActivities ? ' hidden' : ''}${paneDragId === 'breakActivities' ? ' pane-dragging' : ''}${paneDragOverId === 'breakActivities' && paneDragId !== 'breakActivities' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: rightPaneOrder.indexOf('breakActivities') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'breakActivities')}
+            onDrop={(e) => handlePaneDrop(e, 'breakActivities', 'right')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'breakActivities')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+          <div className="break-activities-section">
             <div className="break-activities-header">
               <span className="break-activities-label">Break</span>
               <button
@@ -3804,8 +3913,16 @@ function App() {
             </div>
           </div>
 
+          </div>
+
           {/* Brain Dump */}
-          <div className={`brain-dump-section ${!showBrainDump ? 'hidden' : ''}`}>
+          <div className={`pane-wrapper${!showBrainDump ? ' hidden' : ''}${paneDragId === 'brainDump' ? ' pane-dragging' : ''}${paneDragOverId === 'brainDump' && paneDragId !== 'brainDump' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: rightPaneOrder.indexOf('brainDump') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'brainDump')}
+            onDrop={(e) => handlePaneDrop(e, 'brainDump', 'right')}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'brainDump')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+          <div className="brain-dump-section">
             <div className="brain-dump-header">
               <div className="brain-dump-quick">
                 {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
@@ -3916,6 +4033,7 @@ function App() {
                 </button>
               </div>
             )}
+          </div>
           </div>
 
         </section>

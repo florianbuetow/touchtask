@@ -984,6 +984,65 @@
     flex-direction: column;
 }
 
+/* Pane Reorder DnD */
+.pane-wrapper {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.pane-wrapper > :not(.pane-drag-handle) {
+    margin-bottom: 0;
+}
+
+.pane-drag-handle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    color: var(--faint);
+    user-select: none;
+}
+
+.pane-drag-handle:hover {
+    opacity: 0.5;
+    background: var(--rule);
+}
+
+.pane-drag-handle:active {
+    cursor: grabbing;
+    opacity: 0.8;
+}
+
+.pane-wrapper.pane-dragging {
+    opacity: 0.4;
+}
+
+.pane-wrapper.pane-drop-before::before,
+.pane-wrapper.pane-drop-after::after {
+    content: '';
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: #2e7d32;
+}
+
+.pane-wrapper.pane-drop-before::before {
+    margin-bottom: 8px;
+}
+
+.pane-wrapper.pane-drop-after::after {
+    margin-top: 8px;
+}
+
 /* Current Focus */
 .current-focus-section {
     background: var(--paper);
