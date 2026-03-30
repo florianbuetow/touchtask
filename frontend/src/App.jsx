@@ -2790,6 +2790,7 @@ function App() {
         let toIdx = updated.indexOf(targetId)
         if (fromIdx === -1 || toIdx === -1) return prev
         updated.splice(fromIdx, 1)
+        if (fromIdx < toIdx) toIdx -= 1
         if (paneDragPos === 'after') toIdx += 1
         updated.splice(toIdx, 0, paneDragId)
         return updated
