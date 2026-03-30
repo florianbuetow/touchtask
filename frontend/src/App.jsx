@@ -2178,11 +2178,25 @@ function App() {
     const trimmed = name.trim()
     if (!trimmed) return null
     const existing = projectRegistry.find(p => p.name.toLowerCase() === trimmed.toLowerCase())
-    if (existing) return existing
+    if (existing) {
+      // Ensure existing registry project also has a board column
+      if (!projectBoard.projects.some(p => p.id === existing.id)) {
+        const boardEntry = { id: existing.id, name: existing.name, created_at: new Date().toISOString(), tasks: [] }
+        const updatedBoard = { projects: [...projectBoard.projects, boardEntry] }
+        setProjectBoard(updatedBoard)
+        saveProjectBoard(updatedBoard)
+      }
+      return existing
+    }
     const newProject = { id: generateId(), name: trimmed }
     const updated = [...projectRegistry, newProject]
     setProjectRegistry(updated)
     saveProjectRegistry(updated)
+    // Also add as a board column so it appears in the Project Board
+    const boardEntry = { id: newProject.id, name: newProject.name, created_at: new Date().toISOString(), tasks: [] }
+    const updatedBoard = { projects: [...projectBoard.projects, boardEntry] }
+    setProjectBoard(updatedBoard)
+    saveProjectBoard(updatedBoard)
     return newProject
   }
 
