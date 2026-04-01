@@ -170,7 +170,8 @@ ci:
     console.log('Accessibility:  ', s('accessibility'));\
     console.log('Best Practices: ', s('best-practices'));\
     console.log('SEO:            ', s('seo'));\
-    const failed = Object.values(d.audits).filter(a => a.score === 0 && a.scoreDisplayMode !== 'manual');\
+    const a11y = new Set((d.categories.accessibility?.auditRefs || []).map(r => r.id));\
+    const failed = Object.values(d.audits).filter(a => a.score === 0 && a.scoreDisplayMode !== 'manual' && !a11y.has(a.id));\
     if (failed.length) { console.log(''); console.log('=== FAILED AUDITS ==='); failed.forEach(a => console.log('-', a.title)); }\
     console.log(''); console.log('Details: reports/lighthouse.report.html');\
     "
