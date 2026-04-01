@@ -2575,15 +2575,34 @@ function App() {
     return () => clearInterval(id)
   }, [])
 
-  const setEnergyLevel = (level) => {
+  const setEnergyLevel = (level, hour) => {
     const today = getTodayString()
-    const hour = String(new Date().getHours())
+    const hourStr = String(hour ?? currentHour)
     setEnergyLevels(prev => {
-      const updated = { ...prev, [today]: { ...prev[today], [hour]: level } }
+      const updated = { ...prev, [today]: { ...prev[today], [hourStr]: level } }
       const pruned = pruneEnergyData(updated)
       localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(pruned))
       return pruned
     })
+  }
+
+  const cycleEnergyLevel = (hour) => {
+    const today = getTodayString()
+    const hourStr = String(hour)
+    const current = (energyLevels[today] || {})[hourStr]
+    const cycle = [undefined, 'low', 'medium', 'high']
+    const next = cycle[(cycle.indexOf(current) + 1) % cycle.length]
+    if (next) {
+      setEnergyLevel(next, hour)
+    } else {
+      setEnergyLevels(prev => {
+        const dayData = { ...prev[today] }
+        delete dayData[hourStr]
+        const updated = { ...prev, [today]: dayData }
+        localStorage.setItem(STORAGE_KEYS.ENERGY_LEVELS, JSON.stringify(updated))
+        return updated
+      })
+    }
   }
 
   const refreshEnergyAverages = useCallback(() => {
@@ -3692,13 +3711,19 @@ function App() {
                 </div>
                 <div className="energy-hour-window">
                   {energyWindowHours.map(h => {
-                    const hourStr = String(h)
+                    const normalizedH = h < 0 ? h + 24 : h > 23 ? h - 24 : h
+                    const hourStr = String(normalizedH)
                     const todayLevel = todayEnergy[hourStr]
                     const predictedLevel = energyAverages ? energyAverages[hourStr] : null
                     const isCurrent = h === currentHour
+                    const isClickable = h <= currentHour
                     return (
-                      <div key={h} className={`energy-hour-slot ${isCurrent ? 'current' : ''}`}>
-                        <div className="energy-hour-label">{h < 0 ? h + 24 : h > 23 ? h - 24 : h}:00</div>
+                      <div
+                        key={h}
+                        className={`energy-hour-slot ${isCurrent ? 'current' : ''} ${isClickable ? 'clickable' : ''}`}
+                        onClick={isClickable ? () => cycleEnergyLevel(normalizedH) : undefined}
+                      >
+                        <div className="energy-hour-label">{normalizedH}:00</div>
                         <div className="energy-hour-bar">
                           {todayLevel ? (
                             <div className={`energy-bar-fill solid ${todayLevel}`} />
