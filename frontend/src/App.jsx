@@ -3691,11 +3691,19 @@ function App() {
                       </span>
                       <span className={`fasting-time-center ${fastingComplete ? 'fasting-complete' : ''}`}>
                         {'fasting'}{'\n'}
-                        {fasting.startTime ? formatFastingTime(fastingElapsed) : '--:--'}
+                        {fasting.startTime ? formatFastingTime(fastingElapsed) : '--:--'}{'\n'}
+                        {(() => {
+                          const h = Math.floor(fasting.goalMinutes / 60)
+                          const m = fasting.goalMinutes % 60
+                          if (h === 0) return `${m}m`
+                          return m > 0 ? `${h}h${m}m` : `${h}h`
+                        })()}
                       </span>
                       <span className="fasting-time-label">
                         goal{'\n'}
-                        {formatFastingTime(fastingGoalSeconds)}
+                        {fasting.startTime
+                          ? new Date(fasting.startTime + fasting.goalMinutes * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+                          : '--:--'}
                       </span>
                     </div>
                   </div>

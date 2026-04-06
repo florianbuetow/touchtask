@@ -26,7 +26,7 @@
 #    - On failure: red (\033[31m) message indicating what failed, then exit 1.
 # =============================================================================
 
-# Configurable port (override with: just --set port 9000 run)
+# Configurable port (override with: just --set port 9000 start)
 port := "23232"
 
 # Default recipe: show available commands
@@ -45,7 +45,7 @@ help:
     @printf "  %-18s %s\n" "help" "Show this help information"
     @echo ""
     @printf "\033[0;33mRun & Preview:\033[0m\n"
-    @printf "  %-18s %s\n" "run" "Start the React dev server"
+    @printf "  %-18s %s\n" "start" "Start the React dev server"
     @printf "  %-18s %s\n" "stop" "Stop the dev/preview server"
     @printf "  %-18s %s\n" "status" "Check if the app is running"
     @printf "  %-18s %s\n" "preview" "Preview the production build"
@@ -78,7 +78,7 @@ clean:
     @echo ""
 
 # Start the React dev server
-run:
+start:
     @echo ""
     @lsof -i :{{port}} -sTCP:LISTEN >/dev/null 2>&1 && printf "\033[31m✗ port {{port}} is already in use\033[0m\n" && exit 1 || true
     @(sleep 5 && open http://localhost:{{port}}/touchtask/) &
