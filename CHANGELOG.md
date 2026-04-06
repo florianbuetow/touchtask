@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), copy-all, clear, and toggle via Sunrise icon.
+- Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), copy-all, clear, and toggle via Worm icon.
 - Intermittent Fasting pane in the Habits column with animated diagonal-stripe progress bar, elapsed counter (HH:MM:SS), start time picker with yesterday/today selection, duration goal presets, and persistent state.
 - Three-column layout with Schedule, Tasks, and Cognitive Load columns.
 - Cognitive Load column with current focus input, interruption counter, context switch counter, focus ritual checklist, and hourly energy level tagging.
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pomodoro timer with persistent state and custom presets across page refreshes.
 - Break pane with activity icons, timer overlay, volume control, and configurable activity settings.
 - Themes pane with central project registry, persistent theme colors, and project board sync.
-- Drag-and-drop pane reordering with persistent layout and drop indicator.
+- Drag-and-drop pane reordering with persistent layout and drop indicator across all three columns.
 - Dynamic toggle icons in column headers that reorder to match pane layout.
 - Speech-to-text recording modal for hands-free input.
 - Trash buttons on schedule, shortlist, and focus panes.
