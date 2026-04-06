@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, Worm, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -154,6 +154,9 @@ const STORAGE_KEYS = {
   FOCUS_ORDER: 'touchtask_focus_order',
   CURRENT_FOCUS: 'touchtask_current_focus',
   BRAIN_DUMP: 'touchtask_brain_dump',
+  PLAN_TOMORROW: 'touchtask_plan_tomorrow',
+  PLAN_TOMORROW_RIGHT: 'touchtask_plan_tomorrow_right',
+  PLAN_TOMORROW_SPLIT: 'touchtask_plan_tomorrow_split',
   CONTEXT_SWITCHES: 'touchtask_context_switches',
   ENERGY_LEVELS: 'touchtask_energy_levels',
   ENERGY_AVERAGES: 'touchtask_energy_averages',
@@ -909,6 +912,7 @@ function App() {
   const [showThemes, setShowThemes] = useState(savedPaneVisibility.themes !== false)
   const [showMeetings, setShowMeetings] = useState(savedPaneVisibility.meetings !== false)
   const [showTimeBlocks, setShowTimeBlocks] = useState(savedPaneVisibility.timeBlocks !== false)
+  const [showPlanTomorrow, setShowPlanTomorrow] = useState(savedPaneVisibility.planTomorrow !== false)
   const [showFasting, setShowFasting] = useState(savedPaneVisibility.fasting === true)
 
   useEffect(() => {
@@ -922,9 +926,10 @@ function App() {
       themes: showThemes,
       meetings: showMeetings,
       timeBlocks: showTimeBlocks,
+      planTomorrow: showPlanTomorrow,
       fasting: showFasting,
     }))
-  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks, showFasting])
+  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks, showPlanTomorrow, showFasting])
 
   // Pane ordering state
   const savedPaneOrder = useMemo(() => {
@@ -1093,6 +1098,29 @@ function App() {
   const brainDumpTextareaRef = useRef(null)
   const [brainDumpClearConfirmOpen, setBrainDumpClearConfirmOpen] = useState(false)
   const [brainDumpCopied, setBrainDumpCopied] = useState(false)
+  const [planTomorrow, setPlanTomorrow] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.PLAN_TOMORROW) || ''
+    } catch { return '' }
+  })
+  const [planTomorrowRight, setPlanTomorrowRight] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT) || ''
+    } catch { return '' }
+  })
+  const [planTomorrowSplit, setPlanTomorrowSplit] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PLAN_TOMORROW_SPLIT)
+      return saved ? parseFloat(saved) : 50
+    } catch { return 50 }
+  })
+  const planTomorrowTimerRef = useRef(null)
+  const planTomorrowRightTimerRef = useRef(null)
+  const planTomorrowTextareaRef = useRef(null)
+  const planTomorrowRightTextareaRef = useRef(null)
+  const planTomorrowContainerRef = useRef(null)
+  const [planTomorrowClearConfirmOpen, setPlanTomorrowClearConfirmOpen] = useState(false)
+  const [planTomorrowCopied, setPlanTomorrowCopied] = useState(false)
   const [recordingModalOpen, setRecordingModalOpen] = useState(false)
   const [contextSwitchData, setContextSwitchData] = useState(() => {
     const defaults = { date: getTodayString(), interrupted: 0, switched: 0 }
@@ -1702,6 +1730,8 @@ function App() {
       whiteboards: whiteboardsData,
       stickyNotes: stickyNotes,
       brainDump: brainDump,
+      planTomorrow: planTomorrow,
+      planTomorrowRight: planTomorrowRight,
       energyLevels: energyLevels,
     }
 
@@ -1853,6 +1883,14 @@ function App() {
     localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, loadedBrainDump)
     setBrainDump(loadedBrainDump)
 
+    // Load plan for tomorrow
+    const loadedPlanTomorrow = pendingLoadData.planTomorrow || ''
+    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, loadedPlanTomorrow)
+    setPlanTomorrow(loadedPlanTomorrow)
+    const loadedPlanTomorrowRight = pendingLoadData.planTomorrowRight || ''
+    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, loadedPlanTomorrowRight)
+    setPlanTomorrowRight(loadedPlanTomorrowRight)
+
     // Load energy levels
     const loadedEnergy = pendingLoadData.energyLevels || {}
     const prunedEnergy = pruneEnergyData(loadedEnergy)
@@ -1935,6 +1973,12 @@ function App() {
     // Clear brain dump
     localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, '')
     setBrainDump('')
+
+    // Clear plan for tomorrow
+    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, '')
+    setPlanTomorrow('')
+    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, '')
+    setPlanTomorrowRight('')
 
     // Clear energy levels
     localStorage.removeItem(STORAGE_KEYS.ENERGY_LEVELS)
@@ -2111,6 +2155,14 @@ function App() {
     const demoBrainDump = 'Need to follow up on the API rate limiting issue — the 429s started spiking after we deployed the new batch endpoint. Check if the token bucket config got overwritten.\n\nRemember to ask Sarah about the design review for the settings page. She mentioned something about the toggle spacing feeling off on mobile. Might tie into the responsive grid bug we shelved last sprint.\n\nLook into that weird CSS bug on mobile where the sidebar overlay doesn\'t dismiss on tap outside. Could be a z-index stacking context issue or maybe the backdrop click handler isn\'t firing on touch events.\n\nIdea for the dashboard: what if we added a small sparkline next to each KPI card? Nothing fancy, just the last 7 days trend. Could use the lightweight SVG approach instead of pulling in a full charting library.\n\nNeed to block out time this week to refactor the notification service. The current fan-out logic is getting unwieldy — every new channel we add requires touching three files. Should probably extract a strategy pattern or at least a registry.\n\nParking lot from standup: Alex suggested we look into edge caching for the asset pipeline. Worth a spike if we can get a 30% reduction in TTFB. Grab the Cloudflare docs and compare with our current Fastly setup.'
     localStorage.setItem(STORAGE_KEYS.BRAIN_DUMP, demoBrainDump)
     setBrainDump(demoBrainDump)
+
+    // Load demo plan for tomorrow
+    const demoPlanTomorrow = 'Morning: Review pull requests from overnight and merge the auth refactor if tests pass.\n\nBlock 2 hours for the database migration spike — need to benchmark the new indexing strategy before the Thursday deadline.\n\nLunch: Catch up with Jamie about the onboarding flow redesign. Bring the wireframes from last week.'
+    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, demoPlanTomorrow)
+    setPlanTomorrow(demoPlanTomorrow)
+    const demoPlanTomorrowRight = 'Pair with Alex on the caching layer. Focus on cache invalidation edge cases we identified in the design doc.\n\nEOD: Write up findings from today\'s load test and share in #engineering.\n\nRemember to submit the expense report before Friday.'
+    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, demoPlanTomorrowRight)
+    setPlanTomorrowRight(demoPlanTomorrowRight)
 
     // Load demo energy levels
     const demoEnergy = generateDemoEnergyData()
@@ -3361,8 +3413,9 @@ function App() {
   }).toUpperCase()
 
   // Pane toggle configs (keyed by pane ID, used by dynamic toggle icon rendering)
-  const leftToggleOrder = ['fasting', 'meetings', 'timeBlocks']
+  const leftToggleOrder = ['planTomorrow', 'fasting', 'meetings', 'timeBlocks']
   const leftToggles = {
+    planTomorrow: { icon: Worm, show: showPlanTomorrow, setShow: setShowPlanTomorrow, showTitle: 'Show outline for tomorrow', hideTitle: 'Hide outline for tomorrow' },
     fasting: { icon: FishSymbol, show: showFasting, setShow: setShowFasting, showTitle: 'Show fasting', hideTitle: 'Hide fasting' },
     meetings: { icon: CalendarCheck, show: showMeetings, setShow: setShowMeetings, showTitle: 'Show schedule', hideTitle: 'Hide schedule' },
     timeBlocks: { icon: LayoutList, show: showTimeBlocks, setShow: setShowTimeBlocks, showTitle: 'Show time blocks', hideTitle: 'Hide time blocks' },
@@ -3480,6 +3533,110 @@ function App() {
               </div>
             </div>
           </header>
+
+          {/* Outline for Tomorrow */}
+          <div className={`plan-tomorrow-section ${!showPlanTomorrow ? 'hidden' : ''}`}>
+            <div className="plan-tomorrow-header">
+              <span className="plan-tomorrow-label">Outline for Tomorrow</span>
+              {(planTomorrow || planTomorrowRight) && (
+                <div className="plan-tomorrow-actions">
+                  <button
+                    className={`plan-tomorrow-action-btn ${planTomorrowCopied ? 'copied' : ''}`}
+                    onClick={() => {
+                      const combined = [planTomorrow, planTomorrowRight].filter(Boolean).join('\n\n---\n\n')
+                      navigator.clipboard.writeText(combined)
+                      setPlanTomorrowCopied(true)
+                      setTimeout(() => setPlanTomorrowCopied(false), 1500)
+                    }}
+                    title="Copy both to clipboard"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    className="plan-tomorrow-action-btn danger"
+                    onClick={() => setPlanTomorrowClearConfirmOpen(true)}
+                    title="Clear plan"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="plan-tomorrow-split" ref={planTomorrowContainerRef}>
+              <textarea
+                ref={planTomorrowTextareaRef}
+                className="plan-tomorrow-textarea-left"
+                rows={9}
+                style={{ flexBasis: planTomorrowSplit + '%' }}
+                placeholder="Be honest with yourself ..."
+                value={planTomorrow}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setPlanTomorrow(val)
+                  clearTimeout(planTomorrowTimerRef.current)
+                  planTomorrowTimerRef.current = setTimeout(() => {
+                    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, val)
+                  }, 1000)
+                }}
+                onBlur={() => {
+                  clearTimeout(planTomorrowTimerRef.current)
+                  const trimmed = planTomorrow.split('\n').map(line => line.trim()).join('\n')
+                  setPlanTomorrow(trimmed)
+                  localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, trimmed)
+                }}
+              />
+              <div
+                className="plan-tomorrow-divider"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  const container = planTomorrowContainerRef.current
+                  if (!container) return
+                  const onMouseMove = (ev) => {
+                    const rect = container.getBoundingClientRect()
+                    const pct = Math.min(80, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100))
+                    setPlanTomorrowSplit(pct)
+                  }
+                  const onMouseUp = () => {
+                    document.removeEventListener('mousemove', onMouseMove)
+                    document.removeEventListener('mouseup', onMouseUp)
+                    document.body.style.cursor = ''
+                    document.body.style.userSelect = ''
+                    // Persist after drag ends
+                    setPlanTomorrowSplit(prev => {
+                      localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_SPLIT, String(prev))
+                      return prev
+                    })
+                  }
+                  document.body.style.cursor = 'col-resize'
+                  document.body.style.userSelect = 'none'
+                  document.addEventListener('mousemove', onMouseMove)
+                  document.addEventListener('mouseup', onMouseUp)
+                }}
+              />
+              <textarea
+                ref={planTomorrowRightTextareaRef}
+                className="plan-tomorrow-textarea-right"
+                rows={9}
+                style={{ flexBasis: (100 - planTomorrowSplit) + '%' }}
+                placeholder={"A simple routine:\n\n+ Review today in 1 minute.\n+ Pick the 1 most important task for tomorrow, plus 2 secondary tasks.\n+ Block your calendar loosely around fixed commitments.\n+ Add buffer time so the plan survives interruptions.\n+ Prepare practical items like clothes, lunch, keys, or files."}
+                value={planTomorrowRight}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setPlanTomorrowRight(val)
+                  clearTimeout(planTomorrowRightTimerRef.current)
+                  planTomorrowRightTimerRef.current = setTimeout(() => {
+                    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, val)
+                  }, 1000)
+                }}
+                onBlur={() => {
+                  clearTimeout(planTomorrowRightTimerRef.current)
+                  const trimmed = planTomorrowRight.split('\n').map(line => line.trim()).join('\n')
+                  setPlanTomorrowRight(trimmed)
+                  localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, trimmed)
+                }}
+              />
+            </div>
+          </div>
 
           {/* Fasting Tracker */}
           <div className={`fasting-section ${!showFasting ? 'hidden' : ''}`}>
@@ -4618,6 +4775,21 @@ function App() {
         }}
         title="Clear Brain Dump"
         message="Are you sure you want to clear the brain dump? This action cannot be undone."
+      />
+
+      {/* Outline for Tomorrow Clear Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={planTomorrowClearConfirmOpen}
+        onClose={() => setPlanTomorrowClearConfirmOpen(false)}
+        onConfirm={() => {
+          setPlanTomorrow('')
+          setPlanTomorrowRight('')
+          localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, '')
+          localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, '')
+          setPlanTomorrowClearConfirmOpen(false)
+        }}
+        title="Clear Outline for Tomorrow"
+        message="Are you sure you want to clear the plan? This action cannot be undone."
       />
 
       {/* Brain Dump Voice Recording Modal */}

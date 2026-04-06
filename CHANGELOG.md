@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Fasting tracker pane in the Habits column with progress bar, start/stop controls, duration or until-time goal picker, and persistent state.
+- Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), copy-all, clear, and toggle via Sunrise icon.
+- Intermittent Fasting pane in the Habits column with animated diagonal-stripe progress bar, elapsed counter (HH:MM:SS), start time picker with yesterday/today selection, duration goal presets, and persistent state.
 - Three-column layout with Schedule, Tasks, and Cognitive Load columns.
 - Cognitive Load column with current focus input, interruption counter, context switch counter, focus ritual checklist, and hourly energy level tagging.
 - Click-to-cycle energy levels (high/medium/low) on hour blocks.
@@ -28,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Escape key to close modals and autoFocus on modal inputs.
 - GitHub link icon in header bar.
 - Privacy disclaimer in about modal with improved text readability.
-- Pane visibility persistence across page reloads.
+- Pane visibility persistence across page reloads, including Habits column toggles (fasting, meetings, time blocks).
 - GitHub Pages deployment pipeline.
 - CI toolchain with ESLint, Stylelint, Jest, Knip, Plato, and HTML validation.
 - Configurable dev server port with port-in-use detection.
@@ -57,5 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clamped sticky note positions to viewport on load, toggle, and resize.
 - Fixed Ctrl+Enter newline insertion in sticky notes.
 - Fixed habit tracker trigger button visibility and tooltip rendering.
+- Fixed timer buttons rendering grey text on grey background due to missing explicit color.
 
 [Unreleased]: https://github.com/florianbuetow/touchtask/commits/main

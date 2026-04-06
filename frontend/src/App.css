@@ -2394,6 +2394,120 @@
     color: var(--paper);
 }
 
+/* ---- Plan for Tomorrow ---- */
+
+.plan-tomorrow-section {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1.25rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+}
+
+.plan-tomorrow-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--rule);
+}
+
+.plan-tomorrow-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.plan-tomorrow-split {
+    display: flex;
+    gap: 0;
+    min-height: 150px;
+}
+
+.plan-tomorrow-split textarea {
+    flex-shrink: 0;
+    flex-grow: 0;
+    min-width: 0;
+    box-sizing: border-box;
+    background: var(--paper-dark);
+    border: 1px solid var(--rule);
+    padding: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.6;
+    color: var(--ink);
+    outline: none;
+    resize: none;
+    transition: border-color 0.15s ease;
+}
+
+.plan-tomorrow-textarea-left {
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+}
+
+.plan-tomorrow-textarea-right {
+    border-radius: 0 8px 8px 0;
+    border-left: none;
+}
+
+.plan-tomorrow-split textarea::placeholder {
+    color: var(--muted);
+}
+
+.plan-tomorrow-split textarea:focus {
+    outline: none;
+    border-color: var(--ink);
+}
+
+.plan-tomorrow-divider {
+    width: 6px;
+    flex-shrink: 0;
+    background: var(--rule);
+    cursor: col-resize;
+    transition: background 0.15s ease;
+    position: relative;
+}
+
+.plan-tomorrow-divider:hover,
+.plan-tomorrow-divider:active {
+    background: var(--ink);
+}
+
+.plan-tomorrow-actions {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.plan-tomorrow-action-btn {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.plan-tomorrow-action-btn:hover {
+    color: var(--ink);
+}
+
+.plan-tomorrow-action-btn.copied {
+    color: var(--success);
+}
+
+.plan-tomorrow-action-btn.danger:hover {
+    color: var(--accent);
+}
+
 .brain-dump-section {
     background: var(--paper);
     border-radius: var(--card-radius);
