@@ -738,6 +738,171 @@
     color: var(--accent);
 }
 
+/* Fasting */
+.fasting-section {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+}
+
+.fasting-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+}
+
+.fasting-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.fasting-body {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.fasting-progress-area {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+
+.fasting-progress-track {
+    height: 100%;
+    background: var(--paper-dark);
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.fasting-progress-fill {
+    position: absolute;
+    inset: 0;
+    width: 0%;
+    border-radius: 7px;
+    background: repeating-linear-gradient(
+        -45deg,
+        #a5d6a7,
+        #a5d6a7 8px,
+        var(--paper-dark) 8px,
+        var(--paper-dark) 16px
+    );
+    background-size: 22.6px 22.6px;
+    animation: fasting-stripes 0.8s linear infinite;
+}
+
+.fasting-progress-fill.fasting-progress-complete {
+    background: repeating-linear-gradient(
+        -45deg,
+        #a5d6a7,
+        #a5d6a7 8px,
+        var(--paper-dark) 8px,
+        var(--paper-dark) 16px
+    );
+    background-size: 22.6px 22.6px;
+    animation: fasting-stripes 0.8s linear infinite;
+}
+
+@keyframes fasting-stripes {
+    0% { background-position: 0 0; }
+    100% { background-position: 22.6px 0; }
+}
+
+.fasting-progress-labels {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    width: 100%;
+}
+
+.fasting-time-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: pre-line;
+    text-align: center;
+    line-height: 1.4;
+    min-width: 3rem;
+}
+
+.fasting-time-center {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: pre-line;
+    text-align: center;
+    line-height: 1.4;
+    text-transform: uppercase;
+}
+
+.fasting-time-center.fasting-complete {
+    color: var(--success);
+}
+
+.fasting-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    justify-content: center;
+    color: var(--ink);
+}
+
+.fasting-controls .timer-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.fasting-duration-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+}
+
+.fasting-duration-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.fasting-duration-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.fasting-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: center;
+    margin-top: 0.75rem;
+}
+
+.modal-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
 /* Modal */
 .modal-overlay {
     display: none;
@@ -2179,6 +2344,7 @@
     border: 2px solid var(--ink);
     border-radius: 8px;
     background: var(--paper);
+    color: var(--ink);
     cursor: pointer;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;

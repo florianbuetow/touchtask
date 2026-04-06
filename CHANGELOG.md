@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fasting tracker pane in the Habits column with progress bar, start/stop controls, duration or until-time goal picker, and persistent state.
 - Three-column layout with Schedule, Tasks, and Cognitive Load columns.
 - Cognitive Load column with current focus input, interruption counter, context switch counter, focus ritual checklist, and hourly energy level tagging.
 - Click-to-cycle energy levels (high/medium/low) on hour blocks.

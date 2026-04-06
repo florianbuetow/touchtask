@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -164,6 +164,7 @@ const STORAGE_KEYS = {
   BREAK_ACTIVITY_SETTINGS: 'touchtask_break_activity_settings',
   PANE_VISIBILITY: 'touchtask_pane_visibility',
   PANE_ORDER: 'touchtask_pane_order',
+  FASTING: 'touchtask_fasting',
 }
 
 const DEFAULT_MIDDLE_PANE_ORDER = ['reminders', 'themes', 'kanban']
@@ -908,6 +909,7 @@ function App() {
   const [showThemes, setShowThemes] = useState(savedPaneVisibility.themes !== false)
   const [showMeetings, setShowMeetings] = useState(savedPaneVisibility.meetings !== false)
   const [showTimeBlocks, setShowTimeBlocks] = useState(savedPaneVisibility.timeBlocks !== false)
+  const [showFasting, setShowFasting] = useState(savedPaneVisibility.fasting === true)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PANE_VISIBILITY, JSON.stringify({
@@ -920,8 +922,9 @@ function App() {
       themes: showThemes,
       meetings: showMeetings,
       timeBlocks: showTimeBlocks,
+      fasting: showFasting,
     }))
-  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks])
+  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks, showFasting])
 
   // Pane ordering state
   const savedPaneOrder = useMemo(() => {
@@ -1110,6 +1113,21 @@ function App() {
   const [themeModalOpen, setThemeModalOpen] = useState(false)
   const [editingTheme, setEditingTheme] = useState(null)
   const [themesClearConfirmOpen, setThemesClearConfirmOpen] = useState(false)
+
+  // Fasting state
+  const [fasting, setFasting] = useState(() => {
+    const defaults = { goalMinutes: 16 * 60, goalMode: 'duration', startTime: null }
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.FASTING)
+      if (data) {
+        const parsed = JSON.parse(data)
+        return { ...defaults, ...parsed, goalMinutes: parsed.goalMinutes ?? defaults.goalMinutes, goalMode: parsed.goalMode ?? defaults.goalMode, startTime: parsed.startTime ?? null }
+      }
+      return defaults
+    } catch { return defaults }
+  })
+  const [fastingStartModalOpen, setFastingStartModalOpen] = useState(false)
+  const [fastingStopConfirmOpen, setFastingStopConfirmOpen] = useState(false)
 
   // Sticky notes state
   const [stickyNotes, setStickyNotes] = useState([])
@@ -2129,6 +2147,44 @@ function App() {
     const newDaily = initializeDailyState(masterBlocks, null)
     setDailyState(newDaily)
     setRecycleDayConfirmOpen(false)
+  }
+
+  // ============================================
+  // FASTING HANDLERS
+  // ============================================
+
+  const saveFasting = (updated) => {
+    setFasting(updated)
+    localStorage.setItem(STORAGE_KEYS.FASTING, JSON.stringify(updated))
+  }
+
+  const startFasting = (goalMinutes, startTime) => {
+    saveFasting({ ...fasting, goalMinutes, startTime })
+  }
+
+  const stopFasting = () => {
+    saveFasting({ ...fasting, startTime: null })
+  }
+
+  const handleFastingStartClick = () => {
+    setFastingStartModalOpen(true)
+  }
+
+  const handleFastingStopClick = () => {
+    setFastingStopConfirmOpen(true)
+  }
+
+  const fastingElapsed = fasting.startTime ? Math.max(0, Math.floor((currentTime.getTime() - fasting.startTime) / 1000)) : 0
+  const fastingGoalSeconds = fasting.goalMinutes * 60
+  const fastingRemaining = Math.max(0, fastingGoalSeconds - fastingElapsed)
+  const fastingProgress = fastingGoalSeconds > 0 ? Math.min(100, (fastingElapsed / fastingGoalSeconds) * 100) : 0
+  const fastingComplete = fasting.startTime && fastingRemaining === 0
+
+  const formatFastingTime = (totalSeconds) => {
+    const h = Math.floor(totalSeconds / 3600)
+    const m = Math.floor((totalSeconds % 3600) / 60)
+    const s = totalSeconds % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
   // ============================================
@@ -3305,6 +3361,12 @@ function App() {
   }).toUpperCase()
 
   // Pane toggle configs (keyed by pane ID, used by dynamic toggle icon rendering)
+  const leftToggleOrder = ['fasting', 'meetings', 'timeBlocks']
+  const leftToggles = {
+    fasting: { icon: FishSymbol, show: showFasting, setShow: setShowFasting, showTitle: 'Show fasting', hideTitle: 'Hide fasting' },
+    meetings: { icon: CalendarCheck, show: showMeetings, setShow: setShowMeetings, showTitle: 'Show schedule', hideTitle: 'Hide schedule' },
+    timeBlocks: { icon: LayoutList, show: showTimeBlocks, setShow: setShowTimeBlocks, showTitle: 'Show time blocks', hideTitle: 'Hide time blocks' },
+  }
   const middleToggles = {
     reminders: { icon: List, show: showReminders, setShow: setShowReminders, showTitle: "Show don't forget", hideTitle: "Hide don't forget" },
     themes: { icon: SwatchBook, show: showThemes, setShow: setShowThemes, showTitle: 'Show themes', hideTitle: 'Hide themes' },
@@ -3391,20 +3453,16 @@ function App() {
             <div className="section-meta">
               <span className="habits-stats">{completedCount} of {totalBlocksToday} complete</span>
               <div className="section-meta-buttons">
-                <button
-                  className={`focus-toggle ${!showMeetings ? 'disabled' : ''}`}
-                  onClick={() => setShowMeetings(!showMeetings)}
-                  title={showMeetings ? 'Hide schedule' : 'Show schedule'}
-                >
-                  <CalendarCheck size={14} />
-                </button>
-                <button
-                  className={`focus-toggle ${!showTimeBlocks ? 'disabled' : ''}`}
-                  onClick={() => setShowTimeBlocks(!showTimeBlocks)}
-                  title={showTimeBlocks ? 'Hide time blocks' : 'Show time blocks'}
-                >
-                  <LayoutList size={14} />
-                </button>
+                {leftToggleOrder.map(id => {
+                  const t = leftToggles[id]
+                  if (!t) return null
+                  const Icon = t.icon
+                  return (
+                    <button key={id} className={`focus-toggle ${!t.show ? 'disabled' : ''}`} onClick={() => t.setShow(s => !s)} title={t.show ? t.hideTitle : t.showTitle}>
+                      <Icon size={14} />
+                    </button>
+                  )
+                })}
                 <button
                   className={`focus-toggle ${dailyState.focus_mode ? 'active' : ''}`}
                   onClick={toggleFocusMode}
@@ -3422,6 +3480,52 @@ function App() {
               </div>
             </div>
           </header>
+
+          {/* Fasting Tracker */}
+          <div className={`fasting-section ${!showFasting ? 'hidden' : ''}`}>
+            <div className="fasting-header">
+              <span className="fasting-label">Intermittent Fasting</span>
+            </div>
+            <div className="fasting-body">
+              <div className="fasting-progress-area">
+                <div className="fasting-progress-track">
+                  <div
+                    className={`fasting-progress-fill ${fastingComplete ? 'fasting-progress-complete' : ''}`}
+                    style={{ width: `${fastingProgress}%` }}
+                  />
+                  <div className="fasting-progress-labels">
+                    <span className="fasting-time-label">
+                      {fasting.startTime ? 'started' : 'start'}{'\n'}
+                      {fasting.startTime ? new Date(fasting.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+                    </span>
+                    <span className={`fasting-time-center ${fastingComplete ? 'fasting-complete' : ''}`}>
+                      {'fasting'}{'\n'}
+                      {fasting.startTime ? formatFastingTime(fastingElapsed) : '--:--'}
+                    </span>
+                    <span className="fasting-time-label">
+                      goal{'\n'}
+                      {formatFastingTime(fastingGoalSeconds)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="fasting-controls">
+                <button
+                  className="timer-btn primary"
+                  onClick={handleFastingStartClick}
+                >
+                  Start
+                </button>
+                <button
+                  className="timer-btn small"
+                  onClick={handleFastingStopClick}
+                  disabled={!fasting.startTime}
+                >
+                  Stop
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* Meetings/Terminplaner Section */}
           <div className={!showMeetings ? 'hidden' : ''}>
@@ -4588,6 +4692,29 @@ function App() {
         }}
         title="Clear Themes"
         message="Are you sure you want to remove all themes? This action cannot be undone."
+      />
+
+      {/* Fasting Stop Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={fastingStopConfirmOpen}
+        onClose={() => setFastingStopConfirmOpen(false)}
+        onConfirm={() => {
+          stopFasting()
+          setFastingStopConfirmOpen(false)
+        }}
+        title="Stop Fasting"
+        message="Are you sure you want to stop fasting? Your current progress will be lost."
+      />
+
+      {/* Fasting Start Modal */}
+      <FastingStartModal
+        isOpen={fastingStartModalOpen}
+        onClose={() => setFastingStartModalOpen(false)}
+        onStart={(goalMinutes, startTime) => {
+          startFasting(goalMinutes, startTime)
+          setFastingStartModalOpen(false)
+        }}
+        defaultGoalMinutes={fasting.goalMinutes}
       />
 
       {/* Settings Modal */}
@@ -7089,6 +7216,143 @@ function RecordingModal({ isOpen, onClose, onDone }) {
               <button className="btn btn-primary" onClick={handleDone}>Done</button>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// FASTING START MODAL COMPONENT
+// ============================================
+
+function FastingStartModal({ isOpen, onClose, onStart, defaultGoalMinutes }) {
+  const [durationHours, setDurationHours] = useState(Math.floor((defaultGoalMinutes || 960) / 60))
+  const [durationMinutes, setDurationMinutes] = useState((defaultGoalMinutes || 960) % 60)
+  const [startTimeValue, setStartTimeValue] = useState('')
+  const [startDay, setStartDay] = useState('today')
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
+  useEffect(() => {
+    if (!isOpen) return
+    setDurationHours(Math.floor((defaultGoalMinutes || 960) / 60))
+    setDurationMinutes((defaultGoalMinutes || 960) % 60)
+    const now = new Date()
+    setStartTimeValue(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`)
+    setStartDay('today')
+  }, [isOpen, defaultGoalMinutes])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  const handleSubmit = () => {
+    const goalMinutes = durationHours * 60 + durationMinutes
+    if (goalMinutes < 1) return
+    const [h, m] = startTimeValue.split(':').map(Number)
+    const start = new Date()
+    if (startDay === 'yesterday') start.setDate(start.getDate() - 1)
+    start.setHours(h, m, 0, 0)
+    onStart(goalMinutes, start.getTime())
+  }
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+      <div className="modal confirm-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Start Fasting</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Start Time</label>
+            <div className="fasting-duration-inputs">
+              <div className="fasting-duration-column">
+                <input
+                  type="time"
+                  className="form-input"
+                  value={startTimeValue}
+                  onChange={(e) => setStartTimeValue(e.target.value)}
+                  style={{ textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}
+                />
+              </div>
+              <div className="fasting-duration-column">
+                <div className="break-presets">
+                  <button className={`break-preset-btn${startDay === 'yesterday' ? ' active' : ''}`} onClick={() => { setStartDay('yesterday'); const now = new Date(); setStartTimeValue(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`) }}>Yesterday</button>
+                  <button className={`break-preset-btn${startDay === 'today' ? ' active' : ''}`} onClick={() => { setStartDay('today'); const now = new Date(); setStartTimeValue(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`) }}>Today</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Duration</label>
+            <div className="fasting-duration-inputs">
+              <div className="fasting-duration-column">
+                <div className="break-timer-display">
+                  <input
+                    type="text"
+                    className="break-timer-field"
+                    value={durationHours}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
+                      setDurationHours(Math.min(val, 72))
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    maxLength={2}
+                  />
+                  <span className="fasting-duration-label">hrs</span>
+                </div>
+                <div className="break-presets">
+                  <button className="break-preset-btn" onClick={() => setDurationHours(h => Math.max(0, h - 1))}>−1</button>
+                  <button className="break-preset-btn" onClick={() => setDurationHours(h => Math.min(72, h + 1))}>+1</button>
+                </div>
+              </div>
+              <div className="fasting-duration-column">
+                <div className="break-timer-display">
+                  <input
+                    type="text"
+                    className="break-timer-field"
+                    value={durationMinutes}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
+                      setDurationMinutes(Math.min(val, 59))
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    maxLength={2}
+                  />
+                  <span className="fasting-duration-label">min</span>
+                </div>
+                <div className="break-presets">
+                  <button className="break-preset-btn" onClick={() => setDurationMinutes(m => Math.max(0, m - 5))}>−5</button>
+                  <button className="break-preset-btn" onClick={() => setDurationMinutes(m => Math.min(59, m + 5))}>+5</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Presets</label>
+            <div className="fasting-presets">
+              {[10, 12, 13, 14, 16, 18, 20, 24].map(h => (
+                <button
+                  key={h}
+                  className={`break-preset-btn${durationHours === h && durationMinutes === 0 ? ' active' : ''}`}
+                  onClick={() => { setDurationHours(h); setDurationMinutes(0) }}
+                >{h}h</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSubmit}>Start</button>
         </div>
       </div>
     </div>
