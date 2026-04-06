@@ -792,6 +792,8 @@ function App() {
   const bellAudioRef = useRef(null)
   const audioCtxRef = useRef(null)
   const bellBufferRef = useRef(null)
+  const silenceNodesRef = useRef(null)
+  const pendingNotificationRef = useRef(false)
   const playNotificationRef = useRef(null)
   const timerWorkerRef = useRef(null)
   const heartbeatRef = useRef(null)
@@ -2665,10 +2667,36 @@ function App() {
   }
 
   const lastSoundPlayedRef = useRef(0)
+  const stopSilenceKeepAlive = useCallback(() => {
+    const nodes = silenceNodesRef.current
+    if (nodes) {
+      try { nodes.oscillator.stop() } catch { /* already stopped */ }
+      try { nodes.oscillator.disconnect() } catch { /* ignore */ }
+      try { nodes.gain.disconnect() } catch { /* ignore */ }
+      silenceNodesRef.current = null
+    }
+  }, [])
+  const startSilenceKeepAlive = useCallback((ctx) => {
+    stopSilenceKeepAlive()
+    if (!ctx || ctx.state === 'closed') return
+    const oscillator = ctx.createOscillator()
+    const gain = ctx.createGain()
+    gain.gain.value = 0
+    oscillator.connect(gain)
+    gain.connect(ctx.destination)
+    oscillator.start()
+    silenceNodesRef.current = { oscillator, gain }
+  }, [stopSilenceKeepAlive])
+  // Stop silent keep-alive when timer stops running (break ended or manual stop)
+  useEffect(() => {
+    if (!timerState.isRunning && !timerState.isBreak) {
+      stopSilenceKeepAlive()
+    }
+  }, [timerState.isRunning, timerState.isBreak, stopSilenceKeepAlive])
   const ensureAudioContext = useCallback(() => {
     const existingCtx = audioCtxRef.current
     if (existingCtx && existingCtx.state !== 'closed') {
-      if (existingCtx.state === 'suspended') {
+      if (existingCtx.state === 'suspended' || existingCtx.state === 'interrupted') {
         existingCtx.resume().catch(e => console.error('AudioContext resume failed:', e))
       }
       return existingCtx
@@ -2691,38 +2719,55 @@ function App() {
 
     return ctx
   }, [])
-  const playNotification = useCallback((force = false) => {
+  const playNotification = useCallback(async (force = false) => {
     if (!bellEnabledRef.current) return
     // Prevent duplicate sounds within 3 seconds (e.g. from heartbeat + visibilitychange)
     const now = Date.now()
     if (!force && now - lastSoundPlayedRef.current < 3000) return
     lastSoundPlayedRef.current = now
-    try {
-      const ctx = audioCtxRef.current
-      const buffer = bellBufferRef.current
-      if (ctx && buffer && ctx.state !== 'closed') {
-        if (ctx.state === 'suspended') {
-          ctx.resume().catch(e => console.error('AudioContext resume failed:', e))
-        }
-        const source = ctx.createBufferSource()
-        const gain = ctx.createGain()
-        source.buffer = buffer
-        source.connect(gain)
-        gain.connect(ctx.destination)
-        gain.gain.value = settings?.notificationVolume ?? 0.5
-        source.start(0)
-        return
-      }
 
+    const vol = settings?.notificationVolume ?? 0.5
+
+    // Try Web Audio API first (works best cross-browser when AudioContext is running)
+    const ctx = audioCtxRef.current
+    const buffer = bellBufferRef.current
+    if (ctx && buffer && ctx.state !== 'closed') {
+      try {
+        if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+          await ctx.resume()
+        }
+        if (ctx.state === 'running') {
+          const source = ctx.createBufferSource()
+          const gain = ctx.createGain()
+          source.buffer = buffer
+          source.connect(gain)
+          gain.connect(ctx.destination)
+          gain.gain.value = vol
+          source.start(0)
+          pendingNotificationRef.current = false
+          return
+        }
+      } catch (e) {
+        console.error('Web Audio playback failed, trying HTMLAudioElement:', e)
+      }
+    }
+
+    // Fallback: HTMLAudioElement (Safari may block Web Audio resume without user gesture)
+    try {
       const audio = bellAudioRef.current
       if (audio) {
-        audio.volume = settings?.notificationVolume ?? 0.5
+        audio.volume = vol
         audio.currentTime = 0
-        audio.play().catch(e => console.log('Autoplay blocked:', e))
+        await audio.play()
+        pendingNotificationRef.current = false
+        return
       }
     } catch (e) {
-      console.error('Audio notification failed:', e)
+      console.log('Autoplay blocked, deferring to next user interaction:', e)
     }
+
+    // Both methods failed — defer playback to when user returns to the tab
+    pendingNotificationRef.current = true
   }, [settings?.notificationVolume])
   playNotificationRef.current = playNotification
 
@@ -2875,11 +2920,13 @@ function App() {
         }
       })
     } else {
-      // Start timer
-      ensureAudioContext()
+      // Start timer — unlock AudioContext and keep it alive with a silent oscillator
+      // so Safari doesn't suspend it during the 25+ minute pomodoro
+      const ctx = ensureAudioContext()
+      if (ctx) startSilenceKeepAlive(ctx)
       setTimerState(prev => ({ ...prev, isRunning: true, endTime: Date.now() + prev.timeRemaining * 1000 }))
     }
-  }, [timerState.isBreak, timerState.activeTaskId, timerState.isRunning, activePresetIndex, presets, ensureAudioContext])
+  }, [timerState.isBreak, timerState.activeTaskId, timerState.isRunning, activePresetIndex, presets, ensureAudioContext, startSilenceKeepAlive])
 
   const resetTimer = () => {
     setTimerState(prev => ({
@@ -2919,10 +2966,11 @@ function App() {
     }))
   }
 
-  // Track whether sound needs to play — use a ref (not a closure variable)
-  // because React StrictMode double-invokes state updaters and reverts closure mutations
+  // Track side effects outside the state updater — refs are immune to
+  // React StrictMode double-invocation (which would fire setTimeout twice)
   const pomodoroExpiredRef = useRef(false)
   const breakExpiredRef = useRef(false)
+  const pendingTimeCredit = useRef(null)
 
   heartbeatRef.current = () => {
     const now = Date.now()
@@ -2933,6 +2981,14 @@ function App() {
       const remaining = Math.max(0, Math.ceil((prev.endTime - now) / 1000))
       if (remaining <= 0) {
         pomodoroExpiredRef.current = true
+        // Signal final time credit (computed here, applied outside the updater)
+        if (!prev.isBreak && prev.activeTaskId) {
+          const creditedMinutes = Math.floor((prev.totalTime - prev.timeRemaining) / 60)
+          const totalMinutes = Math.floor(prev.totalTime / 60)
+          if (totalMinutes > creditedMinutes) {
+            pendingTimeCredit.current = { taskId: prev.activeTaskId, minutes: totalMinutes - creditedMinutes }
+          }
+        }
         if (prev.isBreak) {
           const workTime = presets[activePresetIndex].work * 60
           return {
@@ -2957,16 +3013,24 @@ function App() {
         }
       }
 
+      // Credit minutes as each minute boundary is crossed
       if (!prev.isBreak && prev.activeTaskId) {
         const prevMinutes = Math.floor((prev.totalTime - prev.timeRemaining) / 60)
         const nextMinutes = Math.floor((prev.totalTime - remaining) / 60)
         if (nextMinutes > prevMinutes) {
-          setTimeout(() => incrementTaskTime(prev.activeTaskId, nextMinutes - prevMinutes), 0)
+          pendingTimeCredit.current = { taskId: prev.activeTaskId, minutes: nextMinutes - prevMinutes }
         }
       }
 
       return { ...prev, timeRemaining: remaining, elapsedWhileRunning: prev.totalTime - remaining }
     })
+
+    // Apply time credit outside the state updater (runs once, not doubled by StrictMode)
+    if (pendingTimeCredit.current) {
+      const { taskId, minutes } = pendingTimeCredit.current
+      pendingTimeCredit.current = null
+      incrementTaskTime(taskId, minutes)
+    }
 
     if (pomodoroExpiredRef.current) {
       pomodoroExpiredRef.current = false
@@ -2992,10 +3056,16 @@ function App() {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.hidden) return
-      if (audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume().catch(e => console.error('AudioContext resume failed:', e))
+      const ctx = audioCtxRef.current
+      if (ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) {
+        ctx.resume().catch(e => console.error('AudioContext resume failed:', e))
       }
       heartbeatRef.current?.()
+      // Play deferred notification when user returns to the tab (user activation context)
+      if (pendingNotificationRef.current) {
+        pendingNotificationRef.current = false
+        playNotificationRef.current?.(true)
+      }
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
