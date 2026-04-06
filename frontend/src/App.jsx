@@ -906,6 +906,8 @@ function App() {
   const [showBrainDump, setShowBrainDump] = useState(savedPaneVisibility.brainDump !== false)
   const [showBreakActivities, setShowBreakActivities] = useState(savedPaneVisibility.breakActivities !== false)
   const [showThemes, setShowThemes] = useState(savedPaneVisibility.themes !== false)
+  const [showMeetings, setShowMeetings] = useState(savedPaneVisibility.meetings !== false)
+  const [showTimeBlocks, setShowTimeBlocks] = useState(savedPaneVisibility.timeBlocks !== false)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PANE_VISIBILITY, JSON.stringify({
@@ -916,8 +918,10 @@ function App() {
       brainDump: showBrainDump,
       breakActivities: showBreakActivities,
       themes: showThemes,
+      meetings: showMeetings,
+      timeBlocks: showTimeBlocks,
     }))
-  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes])
+  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks])
 
   // Pane ordering state
   const savedPaneOrder = useMemo(() => {
@@ -1106,8 +1110,6 @@ function App() {
   const [themeModalOpen, setThemeModalOpen] = useState(false)
   const [editingTheme, setEditingTheme] = useState(null)
   const [themesClearConfirmOpen, setThemesClearConfirmOpen] = useState(false)
-  const [showMeetings, setShowMeetings] = useState(true)
-  const [showTimeBlocks, setShowTimeBlocks] = useState(true)
 
   // Sticky notes state
   const [stickyNotes, setStickyNotes] = useState([])
