@@ -170,6 +170,7 @@ const STORAGE_KEYS = {
   FASTING: 'touchtask_fasting',
 }
 
+const DEFAULT_LEFT_PANE_ORDER = ['planTomorrow', 'fasting', 'meetings', 'timeBlocks']
 const DEFAULT_MIDDLE_PANE_ORDER = ['reminders', 'themes', 'kanban']
 const DEFAULT_RIGHT_PANE_ORDER = ['currentFocus', 'focusChecklist', 'mentalBandwidth', 'pomodoro', 'breakActivities', 'brainDump']
 
@@ -938,6 +939,14 @@ function App() {
       return data ? JSON.parse(data) : {}
     } catch { return {} }
   }, [])
+  const [leftPaneOrder, setLeftPaneOrder] = useState(() => {
+    if (savedPaneOrder.left) {
+      const valid = savedPaneOrder.left.filter(id => DEFAULT_LEFT_PANE_ORDER.includes(id))
+      const missing = DEFAULT_LEFT_PANE_ORDER.filter(id => !valid.includes(id))
+      return [...valid, ...missing]
+    }
+    return DEFAULT_LEFT_PANE_ORDER
+  })
   const [middlePaneOrder, setMiddlePaneOrder] = useState(() => {
     if (savedPaneOrder.middle) {
       const valid = savedPaneOrder.middle.filter(id => DEFAULT_MIDDLE_PANE_ORDER.includes(id))
@@ -960,10 +969,11 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PANE_ORDER, JSON.stringify({
+      left: leftPaneOrder,
       middle: middlePaneOrder,
       right: rightPaneOrder,
     }))
-  }, [middlePaneOrder, rightPaneOrder])
+  }, [leftPaneOrder, middlePaneOrder, rightPaneOrder])
 
   const breakEndTimeRef = useRef(null)
   const [breakTimeRemaining, setBreakTimeRemaining] = useState(() => {
@@ -2971,7 +2981,7 @@ function App() {
   const handlePaneDrop = (e, targetId, column) => {
     e.preventDefault()
     if (paneDragId && paneDragId !== targetId) {
-      const setOrder = column === 'middle' ? setMiddlePaneOrder : setRightPaneOrder
+      const setOrder = column === 'left' ? setLeftPaneOrder : column === 'middle' ? setMiddlePaneOrder : setRightPaneOrder
       setOrder(prev => {
         const updated = [...prev]
         const fromIdx = updated.indexOf(paneDragId)
@@ -3413,7 +3423,6 @@ function App() {
   }).toUpperCase()
 
   // Pane toggle configs (keyed by pane ID, used by dynamic toggle icon rendering)
-  const leftToggleOrder = ['planTomorrow', 'fasting', 'meetings', 'timeBlocks']
   const leftToggles = {
     planTomorrow: { icon: Worm, show: showPlanTomorrow, setShow: setShowPlanTomorrow, showTitle: 'Show outline for tomorrow', hideTitle: 'Hide outline for tomorrow' },
     fasting: { icon: FishSymbol, show: showFasting, setShow: setShowFasting, showTitle: 'Show fasting', hideTitle: 'Hide fasting' },
@@ -3506,7 +3515,7 @@ function App() {
             <div className="section-meta">
               <span className="habits-stats">{completedCount} of {totalBlocksToday} complete</span>
               <div className="section-meta-buttons">
-                {leftToggleOrder.map(id => {
+                {leftPaneOrder.map(id => {
                   const t = leftToggles[id]
                   if (!t) return null
                   const Icon = t.icon
@@ -3535,157 +3544,194 @@ function App() {
           </header>
 
           {/* Outline for Tomorrow */}
-          <div className={`plan-tomorrow-section ${!showPlanTomorrow ? 'hidden' : ''}`}>
-            <div className="plan-tomorrow-header">
-              <span className="plan-tomorrow-label">Outline for Tomorrow</span>
-              {(planTomorrow || planTomorrowRight) && (
-                <div className="plan-tomorrow-actions">
-                  <button
-                    className={`plan-tomorrow-action-btn ${planTomorrowCopied ? 'copied' : ''}`}
-                    onClick={() => {
-                      const combined = [planTomorrow, planTomorrowRight].filter(Boolean).join('\n\n---\n\n')
-                      navigator.clipboard.writeText(combined)
-                      setPlanTomorrowCopied(true)
-                      setTimeout(() => setPlanTomorrowCopied(false), 1500)
-                    }}
-                    title="Copy both to clipboard"
-                  >
-                    <Copy size={14} />
-                  </button>
-                  <button
-                    className="plan-tomorrow-action-btn danger"
-                    onClick={() => setPlanTomorrowClearConfirmOpen(true)}
-                    title="Clear plan"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="plan-tomorrow-split" ref={planTomorrowContainerRef}>
-              <textarea
-                ref={planTomorrowTextareaRef}
-                className="plan-tomorrow-textarea-left"
-                rows={9}
-                style={{ flexBasis: planTomorrowSplit + '%' }}
-                placeholder="Be honest with yourself ..."
-                value={planTomorrow}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setPlanTomorrow(val)
-                  clearTimeout(planTomorrowTimerRef.current)
-                  planTomorrowTimerRef.current = setTimeout(() => {
-                    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, val)
-                  }, 1000)
-                }}
-                onBlur={() => {
-                  clearTimeout(planTomorrowTimerRef.current)
-                  const trimmed = planTomorrow.split('\n').map(line => line.trim()).join('\n')
-                  setPlanTomorrow(trimmed)
-                  localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, trimmed)
-                }}
-              />
-              <div
-                className="plan-tomorrow-divider"
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  const container = planTomorrowContainerRef.current
-                  if (!container) return
-                  const onMouseMove = (ev) => {
-                    const rect = container.getBoundingClientRect()
-                    const pct = Math.min(80, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100))
-                    setPlanTomorrowSplit(pct)
-                  }
-                  const onMouseUp = () => {
-                    document.removeEventListener('mousemove', onMouseMove)
-                    document.removeEventListener('mouseup', onMouseUp)
-                    document.body.style.cursor = ''
-                    document.body.style.userSelect = ''
-                    // Persist after drag ends
-                    setPlanTomorrowSplit(prev => {
-                      localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_SPLIT, String(prev))
-                      return prev
-                    })
-                  }
-                  document.body.style.cursor = 'col-resize'
-                  document.body.style.userSelect = 'none'
-                  document.addEventListener('mousemove', onMouseMove)
-                  document.addEventListener('mouseup', onMouseUp)
-                }}
-              />
-              <textarea
-                ref={planTomorrowRightTextareaRef}
-                className="plan-tomorrow-textarea-right"
-                rows={9}
-                style={{ flexBasis: (100 - planTomorrowSplit) + '%' }}
-                placeholder={"A simple routine:\n\n+ Review today in 1 minute.\n+ Pick the 1 most important task for tomorrow, plus 2 secondary tasks.\n+ Block your calendar loosely around fixed commitments.\n+ Add buffer time so the plan survives interruptions.\n+ Prepare practical items like clothes, lunch, keys, or files."}
-                value={planTomorrowRight}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setPlanTomorrowRight(val)
-                  clearTimeout(planTomorrowRightTimerRef.current)
-                  planTomorrowRightTimerRef.current = setTimeout(() => {
-                    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, val)
-                  }, 1000)
-                }}
-                onBlur={() => {
-                  clearTimeout(planTomorrowRightTimerRef.current)
-                  const trimmed = planTomorrowRight.split('\n').map(line => line.trim()).join('\n')
-                  setPlanTomorrowRight(trimmed)
-                  localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, trimmed)
-                }}
-              />
+          <div className={`pane-wrapper${!showPlanTomorrow ? ' hidden' : ''}${paneDragId === 'planTomorrow' ? ' pane-dragging' : ''}${paneDragOverId === 'planTomorrow' && paneDragId !== 'planTomorrow' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: leftPaneOrder.indexOf('planTomorrow') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'planTomorrow')}
+            onDrop={(e) => handlePaneDrop(e, 'planTomorrow', 'left')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'planTomorrow')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+            <div className="plan-tomorrow-section">
+              <div className="plan-tomorrow-header">
+                <span className="plan-tomorrow-label">Outline for Tomorrow</span>
+                {(planTomorrow || planTomorrowRight) && (
+                  <div className="plan-tomorrow-actions">
+                    <button
+                      className={`plan-tomorrow-action-btn ${planTomorrowCopied ? 'copied' : ''}`}
+                      onClick={() => {
+                        const combined = [planTomorrow, planTomorrowRight].filter(Boolean).join('\n\n---\n\n')
+                        navigator.clipboard.writeText(combined)
+                        setPlanTomorrowCopied(true)
+                        setTimeout(() => setPlanTomorrowCopied(false), 1500)
+                      }}
+                      title="Copy both to clipboard"
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <button
+                      className="plan-tomorrow-action-btn danger"
+                      onClick={() => setPlanTomorrowClearConfirmOpen(true)}
+                      title="Clear plan"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="plan-tomorrow-split" ref={planTomorrowContainerRef}>
+                <textarea
+                  ref={planTomorrowTextareaRef}
+                  className="plan-tomorrow-textarea-left"
+                  rows={9}
+                  style={{ flexBasis: planTomorrowSplit + '%' }}
+                  placeholder="Be honest with yourself ..."
+                  value={planTomorrow}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setPlanTomorrow(val)
+                    clearTimeout(planTomorrowTimerRef.current)
+                    planTomorrowTimerRef.current = setTimeout(() => {
+                      localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, val)
+                    }, 1000)
+                  }}
+                  onBlur={() => {
+                    clearTimeout(planTomorrowTimerRef.current)
+                    const trimmed = planTomorrow.split('\n').map(line => line.trim()).join('\n')
+                    setPlanTomorrow(trimmed)
+                    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW, trimmed)
+                  }}
+                />
+                <div
+                  className="plan-tomorrow-divider"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    const container = planTomorrowContainerRef.current
+                    if (!container) return
+                    const onMouseMove = (ev) => {
+                      const rect = container.getBoundingClientRect()
+                      const pct = Math.min(80, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100))
+                      setPlanTomorrowSplit(pct)
+                    }
+                    const onMouseUp = () => {
+                      document.removeEventListener('mousemove', onMouseMove)
+                      document.removeEventListener('mouseup', onMouseUp)
+                      document.body.style.cursor = ''
+                      document.body.style.userSelect = ''
+                      // Persist after drag ends
+                      setPlanTomorrowSplit(prev => {
+                        localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_SPLIT, String(prev))
+                        return prev
+                      })
+                    }
+                    document.body.style.cursor = 'col-resize'
+                    document.body.style.userSelect = 'none'
+                    document.addEventListener('mousemove', onMouseMove)
+                    document.addEventListener('mouseup', onMouseUp)
+                  }}
+                />
+                <textarea
+                  ref={planTomorrowRightTextareaRef}
+                  className="plan-tomorrow-textarea-right"
+                  rows={9}
+                  style={{ flexBasis: (100 - planTomorrowSplit) + '%' }}
+                  placeholder={"A simple routine:\n\n+ Review today in 1 minute.\n+ Pick the 1 most important task for tomorrow, plus 2 secondary tasks.\n+ Block your calendar loosely around fixed commitments.\n+ Add buffer time so the plan survives interruptions.\n+ Prepare practical items like clothes, lunch, keys, or files."}
+                  value={planTomorrowRight}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setPlanTomorrowRight(val)
+                    clearTimeout(planTomorrowRightTimerRef.current)
+                    planTomorrowRightTimerRef.current = setTimeout(() => {
+                      localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, val)
+                    }, 1000)
+                  }}
+                  onBlur={() => {
+                    clearTimeout(planTomorrowRightTimerRef.current)
+                    const trimmed = planTomorrowRight.split('\n').map(line => line.trim()).join('\n')
+                    setPlanTomorrowRight(trimmed)
+                    localStorage.setItem(STORAGE_KEYS.PLAN_TOMORROW_RIGHT, trimmed)
+                  }}
+                />
+              </div>
             </div>
           </div>
 
           {/* Fasting Tracker */}
-          <div className={`fasting-section ${!showFasting ? 'hidden' : ''}`}>
-            <div className="fasting-header">
-              <span className="fasting-label">Intermittent Fasting</span>
-            </div>
-            <div className="fasting-body">
-              <div className="fasting-progress-area">
-                <div className="fasting-progress-track">
-                  <div
-                    className={`fasting-progress-fill ${fastingComplete ? 'fasting-progress-complete' : ''}`}
-                    style={{ width: `${fastingProgress}%` }}
-                  />
-                  <div className="fasting-progress-labels">
-                    <span className="fasting-time-label">
-                      {fasting.startTime ? 'started' : 'start'}{'\n'}
-                      {fasting.startTime ? new Date(fasting.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
-                    </span>
-                    <span className={`fasting-time-center ${fastingComplete ? 'fasting-complete' : ''}`}>
-                      {'fasting'}{'\n'}
-                      {fasting.startTime ? formatFastingTime(fastingElapsed) : '--:--'}
-                    </span>
-                    <span className="fasting-time-label">
-                      goal{'\n'}
-                      {formatFastingTime(fastingGoalSeconds)}
-                    </span>
+          <div className={`pane-wrapper${!showFasting ? ' hidden' : ''}${paneDragId === 'fasting' ? ' pane-dragging' : ''}${paneDragOverId === 'fasting' && paneDragId !== 'fasting' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: leftPaneOrder.indexOf('fasting') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'fasting')}
+            onDrop={(e) => handlePaneDrop(e, 'fasting', 'left')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'fasting')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+            <div className="fasting-section">
+              <div className="fasting-header">
+                <span className="fasting-label">Intermittent Fasting</span>
+              </div>
+              <div className="fasting-body">
+                <div className="fasting-progress-area">
+                  <div className="fasting-progress-track">
+                    <div
+                      className={`fasting-progress-fill ${fastingComplete ? 'fasting-progress-complete' : ''}`}
+                      style={{ width: `${fastingProgress}%` }}
+                    />
+                    <div className="fasting-progress-labels">
+                      <span className="fasting-time-label">
+                        {fasting.startTime ? 'started' : 'start'}{'\n'}
+                        {fasting.startTime ? new Date(fasting.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+                      </span>
+                      <span className={`fasting-time-center ${fastingComplete ? 'fasting-complete' : ''}`}>
+                        {'fasting'}{'\n'}
+                        {fasting.startTime ? formatFastingTime(fastingElapsed) : '--:--'}
+                      </span>
+                      <span className="fasting-time-label">
+                        goal{'\n'}
+                        {formatFastingTime(fastingGoalSeconds)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="fasting-controls">
-                <button
-                  className="timer-btn primary"
-                  onClick={handleFastingStartClick}
-                >
-                  Start
-                </button>
-                <button
-                  className="timer-btn small"
-                  onClick={handleFastingStopClick}
-                  disabled={!fasting.startTime}
-                >
-                  Stop
-                </button>
+                <div className="fasting-controls">
+                  <button
+                    className="timer-btn primary"
+                    onClick={handleFastingStartClick}
+                  >
+                    Start
+                  </button>
+                  <button
+                    className="timer-btn small"
+                    onClick={handleFastingStopClick}
+                    disabled={!fasting.startTime}
+                  >
+                    Stop
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Meetings/Terminplaner Section */}
-          <div className={!showMeetings ? 'hidden' : ''}>
+          <div className={`pane-wrapper${!showMeetings ? ' hidden' : ''}${paneDragId === 'meetings' ? ' pane-dragging' : ''}${paneDragOverId === 'meetings' && paneDragId !== 'meetings' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: leftPaneOrder.indexOf('meetings') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'meetings')}
+            onDrop={(e) => handlePaneDrop(e, 'meetings', 'left')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'meetings')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
             <MeetingsSection
               meetings={meetings}
               onAdd={openAddMeeting}
@@ -3694,37 +3740,51 @@ function App() {
             />
           </div>
 
-          {/* Completed Habits Pills */}
-          <div className={`completed-habits ${!showTimeBlocks ? 'hidden' : ''}`}>
-            {completedBlocks.map(block => (
-              <div
-                key={block.id}
-                className={`completed-habit-pill ${block.skipped ? 'skipped' : ''}`}
-                onClick={() => restoreBlock(block.id)}
-              >
-                <span>{block.skipped ? '⏭' : '✓'}</span> {block.title}
+          {/* Time Blocks (Completed + Daily Schedule) */}
+          <div className={`pane-wrapper${!showTimeBlocks ? ' hidden' : ''}${paneDragId === 'timeBlocks' ? ' pane-dragging' : ''}${paneDragOverId === 'timeBlocks' && paneDragId !== 'timeBlocks' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: leftPaneOrder.indexOf('timeBlocks') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'timeBlocks')}
+            onDrop={(e) => handlePaneDrop(e, 'timeBlocks', 'left')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'timeBlocks')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+            {/* Completed Habits Pills */}
+            <div className="completed-habits">
+              {completedBlocks.map(block => (
+                <div
+                  key={block.id}
+                  className={`completed-habit-pill ${block.skipped ? 'skipped' : ''}`}
+                  onClick={() => restoreBlock(block.id)}
+                >
+                  <span>{block.skipped ? '⏭' : '✓'}</span> {block.title}
+                </div>
+              ))}
+            </div>
+
+            {/* Daily Schedule */}
+            <div className="daily-schedule">
+              {visibleBlocks.map(block => (
+                <TimeBlock
+                  key={block.id}
+                  block={block}
+                  currentTime={currentTime}
+                  onToggleMinimized={() => toggleBlockMinimized(block.id)}
+                  onCycleSubtask={(subtaskId) => cycleSubtaskState(block.id, subtaskId)}
+                  onComplete={() => completeBlock(block.id)}
+                  onSkip={() => completeBlock(block.id, true)}
+                  onToggleRepeatDay={(dayIndex) => toggleRepeatDay(block.id, dayIndex)}
+                  onEdit={() => openEditBlock(block)}
+                />
+              ))}
+
+              <div className="add-block" onClick={() => setBlockModalOpen(true)}>
+                + Add new time block
               </div>
-            ))}
-          </div>
-
-          {/* Daily Schedule */}
-          <div className={`daily-schedule ${!showTimeBlocks ? 'hidden' : ''}`}>
-            {visibleBlocks.map(block => (
-              <TimeBlock
-                key={block.id}
-                block={block}
-                currentTime={currentTime}
-                onToggleMinimized={() => toggleBlockMinimized(block.id)}
-                onCycleSubtask={(subtaskId) => cycleSubtaskState(block.id, subtaskId)}
-                onComplete={() => completeBlock(block.id)}
-                onSkip={() => completeBlock(block.id, true)}
-                onToggleRepeatDay={(dayIndex) => toggleRepeatDay(block.id, dayIndex)}
-                onEdit={() => openEditBlock(block)}
-              />
-            ))}
-
-            <div className="add-block" onClick={() => setBlockModalOpen(true)}>
-              + Add new time block
             </div>
           </div>
         </section>

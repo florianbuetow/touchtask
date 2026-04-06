@@ -1138,7 +1138,16 @@
     border-color: var(--success);
 }
 
-/* Kanban & Pomodoro styles */
+/* Column flex layout for pane reordering */
+.habits-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.habits-section > .section-header {
+    order: -1;
+}
+
 .cognitive-load-section {
     display: flex;
     flex-direction: column;
