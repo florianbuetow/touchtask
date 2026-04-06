@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trapped keyboard focus inside modals to prevent Tab/Shift+Tab escape.
 - Resolved stale closure that prevented notification sound in Safari.
 - Replaced timer infrastructure with heartbeat Worker and Web Audio API for cross-browser reliability.
+- Fixed Safari notification sound by keeping AudioContext alive with a silent oscillator, handling Safari's `interrupted` state, and deferring playback to tab focus when autoplay is blocked.
+- Fixed pomodoro timer crediting double minutes due to React StrictMode double-invoking state updater side effects.
+- Fixed missing final minute not being credited to the active task when a pomodoro expires.
 - Persisted custom pomodoro timer presets across page reloads.
 - Saved sticky note content on blur instead of every keystroke.
 - Clamped sticky note positions to viewport on load, toggle, and resize.
