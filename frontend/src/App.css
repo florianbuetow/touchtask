@@ -1168,6 +1168,10 @@
     margin-bottom: 0;
 }
 
+.pane-wrapper > .completed-habits {
+    margin-bottom: 1rem;
+}
+
 .pane-drag-handle {
     position: absolute;
     top: 4px;

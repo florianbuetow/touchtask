@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Completed habit pills now have proper margin (1rem) above the blocks section instead of zero gap.
+
 ### Added
 
 - Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), expand/shrink resize buttons (optimal height based on tallest textarea), copy-all, clear, and toggle via Worm icon.
