@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), copy-all, clear, and toggle via Worm icon.
+- Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), expand/shrink resize buttons (optimal height based on tallest textarea), copy-all, clear, and toggle via Worm icon.
 - Intermittent Fasting pane in the Habits column with animated diagonal-stripe progress bar, elapsed counter (HH:MM:SS), start time picker with yesterday/today selection, duration goal presets, and persistent state.
+- Fasting goal display now shows the target end time (start + duration) in HH:MM format, with a compact duration label (e.g. "16h", "13h30m") under the elapsed timer.
 - Three-column layout with Schedule, Tasks, and Cognitive Load columns.
 - Cognitive Load column with current focus input, interruption counter, context switch counter, focus ritual checklist, and hourly energy level tagging.
 - Click-to-cycle energy levels (high/medium/low) on hour blocks.
@@ -40,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced default Vite favicon with custom TouchTask favicon and app manifest.
 - Modernized CSS syntax (`rgba()` to `rgb()`, `inset` shorthand, `flex-flow`, range media queries).
 - Revamped justfile with grouped help output, color-coded messages, and stop/status targets.
+- Renamed `just run` to `just start`.
 - Improved project board layout and drag-off-board behavior.
 
 ### Fixed

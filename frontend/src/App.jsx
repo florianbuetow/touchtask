@@ -3562,6 +3562,35 @@ function App() {
                 {(planTomorrow || planTomorrowRight) && (
                   <div className="plan-tomorrow-actions">
                     <button
+                      className="plan-tomorrow-action-btn"
+                      onClick={() => {
+                        const left = planTomorrowTextareaRef.current
+                        const right = planTomorrowRightTextareaRef.current
+                        if (left) { left.style.height = 'auto'; left.style.height = (left.scrollHeight + 16) + 'px' }
+                        if (right) { right.style.height = 'auto'; right.style.height = (right.scrollHeight + 16) + 'px' }
+                        const maxH = Math.max(left ? left.scrollHeight + 16 : 0, right ? right.scrollHeight + 16 : 0)
+                        if (left) left.style.height = maxH + 'px'
+                        if (right) right.style.height = maxH + 'px'
+                        const section = planTomorrowContainerRef.current?.closest('.plan-tomorrow-section')
+                        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }}
+                      title="Expand to fit content"
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                    <button
+                      className="plan-tomorrow-action-btn"
+                      onClick={() => {
+                        const left = planTomorrowTextareaRef.current
+                        const right = planTomorrowRightTextareaRef.current
+                        if (left) left.style.height = ''
+                        if (right) right.style.height = ''
+                      }}
+                      title="Shrink to default height"
+                    >
+                      <Minimize2 size={14} />
+                    </button>
+                    <button
                       className={`plan-tomorrow-action-btn ${planTomorrowCopied ? 'copied' : ''}`}
                       onClick={() => {
                         const combined = [planTomorrow, planTomorrowRight].filter(Boolean).join('\n\n---\n\n')
