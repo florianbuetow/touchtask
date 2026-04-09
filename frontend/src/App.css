@@ -2668,6 +2668,159 @@
     color: var(--paper);
 }
 
+/* ---- Quote Section ---- */
+
+.quote-section {
+    background: var(--paper);
+    border-radius: var(--card-radius);
+    padding: 1.25rem;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+    margin-bottom: 1rem;
+}
+
+.quote-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+}
+
+.quote-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.quote-settings-btn {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    margin-left: auto;
+    padding: 0;
+}
+
+.quote-settings-btn:hover {
+    color: var(--ink);
+}
+
+.quote-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+}
+
+.quote-text {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--ink);
+    text-align: center;
+    overflow-wrap: break-word;
+}
+
+.quote-source {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    text-align: right;
+}
+
+.quote-empty {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 0.5rem 0;
+}
+
+/* ---- Quote Settings Modal ---- */
+
+.quote-settings-modal {
+    max-width: 640px;
+}
+
+.quote-settings-textarea {
+    min-height: 220px;
+    max-height: 50vh;
+    resize: vertical;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    overflow-y: auto;
+}
+
+.quote-settings-count {
+    margin-top: 0.35rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    text-align: right;
+}
+
+.quote-settings-mode-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.quote-mode-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    border: 2px solid var(--rule);
+    border-radius: 8px;
+    background: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.quote-mode-option input {
+    display: none;
+}
+
+.quote-mode-option:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.quote-mode-option.active {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+}
+
+.quote-settings-preview {
+    background: var(--paper-dark);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
 /* ---- Recording Modal ---- */
 
 .recording-body {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, RotateCcw, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, Worm, X } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, Quote, RotateCcw, Settings, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, Worm, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -53,6 +53,46 @@ const getProgressColorClass = (percent) => {
   if (percent <= 40) return 'progress-orange'
   if (percent <= 60) return 'progress-yellow'
   return 'progress-green'
+}
+
+// Deterministic 32-bit string hash (Java String.hashCode style)
+const hashString = (s) => {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i)
+    h |= 0
+  }
+  return Math.abs(h)
+}
+
+// Parse a quote textarea into [{text, source}]. Empty lines are ignored.
+// The last " - " on each line splits the quote text from its source.
+const parseQuotes = (text) => {
+  if (!text) return []
+  return text.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => {
+      const idx = line.lastIndexOf(' - ')
+      if (idx === -1) return { text: line, source: '' }
+      return {
+        text: line.slice(0, idx).trim(),
+        source: line.slice(idx + 3).trim()
+      }
+    })
+}
+
+// Pick a quote index based on the chosen mode.
+// fixed → clamped fixedIndex; daily → hash of YYYY-MM-DD; hourly → hash of YYYY-MM-DD-HH.
+const pickQuoteIndex = (count, mode, fixedIndex, now = new Date()) => {
+  if (count <= 0) return -1
+  if (mode === 'fixed') {
+    const i = Number.isFinite(fixedIndex) ? fixedIndex : 0
+    return Math.min(Math.max(0, i), count - 1)
+  }
+  const dateStr = now.toISOString().split('T')[0]
+  const key = mode === 'hourly' ? `${dateStr}-${now.getHours()}` : dateStr
+  return hashString(key) % count
 }
 
 // ============================================
@@ -168,11 +208,12 @@ const STORAGE_KEYS = {
   PANE_VISIBILITY: 'touchtask_pane_visibility',
   PANE_ORDER: 'touchtask_pane_order',
   FASTING: 'touchtask_fasting',
+  QUOTE: 'touchtask_quote',
 }
 
 const DEFAULT_LEFT_PANE_ORDER = ['planTomorrow', 'fasting', 'meetings', 'timeBlocks']
 const DEFAULT_MIDDLE_PANE_ORDER = ['reminders', 'themes', 'kanban']
-const DEFAULT_RIGHT_PANE_ORDER = ['currentFocus', 'focusChecklist', 'mentalBandwidth', 'pomodoro', 'breakActivities', 'brainDump']
+const DEFAULT_RIGHT_PANE_ORDER = ['currentFocus', 'focusChecklist', 'mentalBandwidth', 'pomodoro', 'breakActivities', 'brainDump', 'quote']
 
 const getDefaultSettings = () => ({
   dayStartsAt: '00:00',
@@ -915,6 +956,32 @@ function App() {
   const [showTimeBlocks, setShowTimeBlocks] = useState(savedPaneVisibility.timeBlocks !== false)
   const [showPlanTomorrow, setShowPlanTomorrow] = useState(savedPaneVisibility.planTomorrow !== false)
   const [showFasting, setShowFasting] = useState(savedPaneVisibility.fasting === true)
+  const [showQuote, setShowQuote] = useState(savedPaneVisibility.quote !== false)
+
+  const [quoteConfig, setQuoteConfig] = useState(() => {
+    const defaults = { text: '', mode: 'daily', fixedIndex: 0 }
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.QUOTE)
+      if (data) {
+        const parsed = JSON.parse(data)
+        return { ...defaults, ...parsed }
+      }
+    } catch { /* ignore */ }
+    return defaults
+  })
+  const updateQuoteConfig = (next) => {
+    setQuoteConfig(next)
+    localStorage.setItem(STORAGE_KEYS.QUOTE, JSON.stringify(next))
+  }
+  const [quoteSettingsOpen, setQuoteSettingsOpen] = useState(false)
+
+  // Compute the currently displayed quote based on mode and config.
+  // currentTime updates each second so hourly mode rolls over automatically.
+  const currentQuote = useMemo(() => {
+    const parsed = parseQuotes(quoteConfig.text)
+    const idx = pickQuoteIndex(parsed.length, quoteConfig.mode, quoteConfig.fixedIndex, currentTime)
+    return idx >= 0 ? parsed[idx] : null
+  }, [quoteConfig.text, quoteConfig.mode, quoteConfig.fixedIndex, currentTime])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PANE_VISIBILITY, JSON.stringify({
@@ -929,8 +996,9 @@ function App() {
       timeBlocks: showTimeBlocks,
       planTomorrow: showPlanTomorrow,
       fasting: showFasting,
+      quote: showQuote,
     }))
-  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks, showPlanTomorrow, showFasting])
+  }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks, showPlanTomorrow, showFasting, showQuote])
 
   // Pane ordering state
   const savedPaneOrder = useMemo(() => {
@@ -3441,6 +3509,7 @@ function App() {
     pomodoro: { icon: Timer, show: showPomodoro, setShow: setShowPomodoro, showTitle: 'Show pomodoro timer', hideTitle: 'Hide pomodoro timer' },
     breakActivities: { icon: Coffee, show: showBreakActivities, setShow: setShowBreakActivities, showTitle: 'Show break activities', hideTitle: 'Hide break activities' },
     brainDump: { icon: NotebookPen, show: showBrainDump, setShow: setShowBrainDump, showTitle: 'Show brain dump', hideTitle: 'Hide brain dump' },
+    quote: { icon: Quote, show: showQuote, setShow: setShowQuote, showTitle: 'Show quote', hideTitle: 'Hide quote' },
   }
 
   return (
@@ -4560,6 +4629,45 @@ function App() {
             </div>
           </div>
 
+          {/* Quote */}
+          <div className={`pane-wrapper${!showQuote ? ' hidden' : ''}${paneDragId === 'quote' ? ' pane-dragging' : ''}${paneDragOverId === 'quote' && paneDragId !== 'quote' ? ` pane-drop-${paneDragPos}` : ''}`}
+            style={{ order: rightPaneOrder.indexOf('quote') }}
+            onDragOver={(e) => handlePaneDragOver(e, 'quote')}
+            onDrop={(e) => handlePaneDrop(e, 'quote', 'right')}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setPaneDragOverId(null)
+                setPaneDragPos(null)
+              }
+            }}
+          >
+            <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'quote')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+            <div className="quote-section">
+              <div className="quote-header">
+                <span className="quote-label">Quote</span>
+                <button
+                  className="quote-settings-btn"
+                  onClick={() => setQuoteSettingsOpen(true)}
+                  title="Quote settings"
+                >
+                  <Settings size={14} />
+                </button>
+              </div>
+              <div className="quote-content">
+                {currentQuote ? (
+                  <>
+                    <div className="quote-text">“{currentQuote.text}”</div>
+                    {currentQuote.source && (
+                      <div className="quote-source">— {currentQuote.source}</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="quote-empty">Open settings to add quotes.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
         </section>
       </main>
 
@@ -4999,6 +5107,15 @@ function App() {
         defaultBreakActivities={defaultBreakActivities}
         breakActivitySettings={breakActivitySettings}
         onBreakActivitySettingsChange={updateBreakActivitySettings}
+      />
+
+      {/* Quote Settings Modal */}
+      <QuoteSettingsModal
+        isOpen={quoteSettingsOpen}
+        onClose={() => setQuoteSettingsOpen(false)}
+        config={quoteConfig}
+        onChange={updateQuoteConfig}
+        currentTime={currentTime}
       />
 
       {/* About Modal */}
@@ -7846,6 +7963,125 @@ function SettingsModal({ isOpen, onClose, settings, onSave, onTestSound, default
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave}>Save</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// QUOTE SETTINGS MODAL COMPONENT
+// ============================================
+
+function QuoteSettingsModal({ isOpen, onClose, config, onChange, currentTime }) {
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
+  const parsed = useMemo(() => parseQuotes(config.text), [config.text])
+
+  const previewIndex = useMemo(
+    () => pickQuoteIndex(parsed.length, config.mode, config.fixedIndex, currentTime),
+    [parsed.length, config.mode, config.fixedIndex, currentTime]
+  )
+  const previewQuote = previewIndex >= 0 ? parsed[previewIndex] : null
+
+  if (!isOpen) return null
+
+  const setMode = (mode) => onChange({ ...config, mode })
+  const setText = (text) => onChange({ ...config, text })
+  const setFixedIndex = (fixedIndex) => onChange({ ...config, fixedIndex })
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+      <div className="modal quote-settings-modal" ref={modalRef} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Quote Settings</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Quotes (one per line, last “ - ” splits text from source)</label>
+            <textarea
+              className="form-input quote-settings-textarea"
+              value={config.text}
+              onChange={e => setText(e.target.value)}
+              placeholder={'The only way to do great work is to love what you do. - Steve Jobs\nIt always seems impossible until it\u2019s done. - Nelson Mandela'}
+            />
+            <div className="quote-settings-count">{parsed.length} {parsed.length === 1 ? 'quote' : 'quotes'}</div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Mode</label>
+            <div className="quote-settings-mode-row">
+              {[['fixed', 'Fixed'], ['hourly', 'Hourly'], ['daily', 'Daily']].map(([value, label]) => (
+                <label key={value} className={`quote-mode-option ${config.mode === value ? 'active' : ''}`}>
+                  <input
+                    type="radio"
+                    name="quote-mode"
+                    value={value}
+                    checked={config.mode === value}
+                    onChange={() => setMode(value)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {config.mode === 'fixed' && (
+            <div className="form-group">
+              <label className="form-label">Pick Quote</label>
+              <select
+                className="form-input"
+                value={Math.min(Math.max(0, config.fixedIndex || 0), Math.max(0, parsed.length - 1))}
+                onChange={e => setFixedIndex(parseInt(e.target.value, 10) || 0)}
+                disabled={parsed.length === 0}
+              >
+                {parsed.length === 0 ? (
+                  <option value={0}>No quotes available</option>
+                ) : (
+                  parsed.map((q, i) => {
+                    const label = q.text.length > 60 ? `${q.text.slice(0, 60)}…` : q.text
+                    return (
+                      <option key={i} value={i}>{label}{q.source ? ` — ${q.source}` : ''}</option>
+                    )
+                  })
+                )}
+              </select>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label className="form-label">Current Quote</label>
+            <div className="quote-settings-preview">
+              {previewQuote ? (
+                <>
+                  <div className="quote-text">“{previewQuote.text}”</div>
+                  {previewQuote.source && (
+                    <div className="quote-source">— {previewQuote.source}</div>
+                  )}
+                </>
+              ) : (
+                <div className="quote-empty">No quote to display.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <div className="modal-footer-right">
+            <button className="btn btn-primary" onClick={onClose}>Done</button>
+          </div>
         </div>
       </div>
     </div>
