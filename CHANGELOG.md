@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reorder subtasks in the Add/Edit Block modal with up/down arrow buttons — first/last items have their respective arrow disabled, and the new order persists to local storage on save.
 - Quote pane in the Cognitive Load column with a gear-icon settings modal — paste quotes (one per line, last " - " separates text from source), pick fixed/hourly/daily mode (deterministic hash of YYYY-MM-DD or YYYY-MM-DD-HH), and live preview of the currently displayed quote.
 - Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), expand/shrink resize buttons (optimal height based on tallest textarea), copy-all, clear, and toggle via Worm icon.
 - Intermittent Fasting pane in the Habits column with animated diagonal-stripe progress bar, elapsed counter (HH:MM:SS), start time picker with yesterday/today selection, duration goal presets, and persistent state.
