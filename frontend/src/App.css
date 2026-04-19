@@ -1062,6 +1062,30 @@
     color: var(--accent);
 }
 
+.subtask-move {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.subtask-move:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.subtask-move:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
 .add-subtask-btn {
     padding: 0.5rem;
     border: 2px dashed var(--rule);

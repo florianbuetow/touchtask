@@ -5696,6 +5696,20 @@ function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
     setSubtasks(subtasks.filter((_, i) => i !== index))
   }
 
+  const moveSubtaskUp = (index) => {
+    if (index <= 0) return
+    const newSubtasks = [...subtasks]
+    ;[newSubtasks[index - 1], newSubtasks[index]] = [newSubtasks[index], newSubtasks[index - 1]]
+    setSubtasks(newSubtasks)
+  }
+
+  const moveSubtaskDown = (index) => {
+    if (index >= subtasks.length - 1) return
+    const newSubtasks = [...subtasks]
+    ;[newSubtasks[index + 1], newSubtasks[index]] = [newSubtasks[index], newSubtasks[index + 1]]
+    setSubtasks(newSubtasks)
+  }
+
   const toggleDay = (index) => {
     const newDays = [...activeDays]
     newDays[index] = !newDays[index]
@@ -5817,6 +5831,24 @@ function AddBlockModal({ isOpen, onClose, onSave, onDelete, editingBlock }) {
                     value={st.minutes || ''}
                     onChange={e => updateSubtaskMinutes(i, e.target.value)}
                   />
+                  <button
+                    className="subtask-move"
+                    onClick={() => moveSubtaskUp(i)}
+                    disabled={i === 0}
+                    aria-label="Move subtask up"
+                    title="Move up"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="subtask-move"
+                    onClick={() => moveSubtaskDown(i)}
+                    disabled={i === subtasks.length - 1}
+                    aria-label="Move subtask down"
+                    title="Move down"
+                  >
+                    ↓
+                  </button>
                   <button className="subtask-remove" onClick={() => removeSubtask(i)}>
                     &times;
                   </button>
