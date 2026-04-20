@@ -209,7 +209,15 @@ const STORAGE_KEYS = {
   PANE_ORDER: 'touchtask_pane_order',
   FASTING: 'touchtask_fasting',
   QUOTE: 'touchtask_quote',
+  TIME_BLOCK_TYPES: 'touchtask_time_block_types',
 }
+
+const DEFAULT_TYPE_NAME = 'default'
+
+const getDefaultTimeBlockTypes = () => ({
+  types: [{ id: generateId(), name: DEFAULT_TYPE_NAME }],
+  selectedName: DEFAULT_TYPE_NAME
+})
 
 const DEFAULT_LEFT_PANE_ORDER = ['planTomorrow', 'fasting', 'meetings', 'timeBlocks']
 const DEFAULT_MIDDLE_PANE_ORDER = ['reminders', 'themes', 'kanban']
@@ -237,7 +245,7 @@ const saveSettings = (data) => {
 
 // Default data for first-time users
 const getDefaultMasterBlocks = () => ({
-  blocks: [
+  blocks: ([
     {
       id: generateId(),
       title: 'Morning Identity Primer',
@@ -381,7 +389,7 @@ const getDefaultMasterBlocks = () => ({
         { id: generateId(), title: 'Done ritual: tea/shower/reflection', duration_minutes: 5, optional: true },
       ]
     }
-  ]
+  ]).map(b => ({ ...b, type: DEFAULT_TYPE_NAME }))
 })
 
 const getDefaultKanbanTasks = () => ({
@@ -497,10 +505,14 @@ const getDefaultHabitTracker = () => {
 }
 
 
+const migrateBlocksAddType = (blocks) =>
+  (blocks || []).map(b => (b && b.type ? b : { ...b, type: DEFAULT_TYPE_NAME }))
+
 const loadMasterBlocks = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.MASTER_BLOCKS)
-    return data ? JSON.parse(data) : getDefaultMasterBlocks()
+    const parsed = data ? JSON.parse(data) : getDefaultMasterBlocks()
+    return { ...parsed, blocks: migrateBlocksAddType(parsed.blocks) }
   } catch (e) {
     console.error('Error loading master blocks:', e)
     return getDefaultMasterBlocks()
@@ -509,6 +521,27 @@ const loadMasterBlocks = () => {
 
 const saveMasterBlocks = (data) => {
   localStorage.setItem(STORAGE_KEYS.MASTER_BLOCKS, JSON.stringify(data))
+}
+
+const loadTimeBlockTypes = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.TIME_BLOCK_TYPES)
+    if (!data) return getDefaultTimeBlockTypes()
+    const parsed = JSON.parse(data)
+    const types = Array.isArray(parsed.types) && parsed.types.length > 0
+      ? parsed.types.map(t => ({ id: t.id || generateId(), name: t.name }))
+      : getDefaultTimeBlockTypes().types
+    const hasSelected = types.some(t => t.name === parsed.selectedName)
+    const selectedName = hasSelected ? parsed.selectedName : (types[0]?.name || DEFAULT_TYPE_NAME)
+    return { types, selectedName }
+  } catch (e) {
+    console.error('Error loading time block types:', e)
+    return getDefaultTimeBlockTypes()
+  }
+}
+
+const saveTimeBlockTypes = (data) => {
+  localStorage.setItem(STORAGE_KEYS.TIME_BLOCK_TYPES, JSON.stringify(data))
 }
 
 const loadDailyState = () => {
@@ -708,7 +741,7 @@ const initializeDailyState = (masterBlocks, existingDailyState) => {
 
   // Check if we need to reset
   if (existingDailyState && existingDailyState.date === today) {
-    return existingDailyState
+    return { ...existingDailyState, blocks: migrateBlocksAddType(existingDailyState.blocks) }
   }
 
   // Preserve focus mode preference
@@ -742,6 +775,9 @@ function App() {
   // State
   const [masterBlocks, setMasterBlocks] = useState(null)
   const [dailyState, setDailyState] = useState(null)
+  const [timeBlockTypes, setTimeBlockTypes] = useState([])
+  const [selectedTypeName, setSelectedTypeName] = useState(DEFAULT_TYPE_NAME)
+  const [typeManagerOpen, setTypeManagerOpen] = useState(false)
   const [kanbanTasks, setKanbanTasks] = useState(null)
   const [reminders, setReminders] = useState([])
   const [meetings, setMeetings] = useState({ date: getTodayString(), items: [] })
@@ -999,6 +1035,11 @@ function App() {
       quote: showQuote,
     }))
   }, [showPomodoro, showMentalBandwidth, showFocusChecklist, showCurrentFocus, showBrainDump, showBreakActivities, showThemes, showMeetings, showTimeBlocks, showPlanTomorrow, showFasting, showQuote])
+
+  useEffect(() => {
+    if (timeBlockTypes.length === 0) return
+    saveTimeBlockTypes({ types: timeBlockTypes, selectedName: selectedTypeName })
+  }, [timeBlockTypes, selectedTypeName])
 
   // Pane ordering state
   const savedPaneOrder = useMemo(() => {
@@ -1349,8 +1390,13 @@ function App() {
       const loadedStickyNotes = clampNotesToViewport(loadStickyNotes(), window.innerWidth, window.innerHeight)
       console.log('TouchTask: Sticky notes loaded', loadedStickyNotes)
 
+      const loadedTypes = loadTimeBlockTypes()
+      console.log('TouchTask: Time block types loaded', loadedTypes)
+
       setMasterBlocks(master)
       setDailyState(daily)
+      setTimeBlockTypes(loadedTypes.types)
+      setSelectedTypeName(loadedTypes.selectedName)
       setKanbanTasks(kanban)
       setReminders(loadedReminders)
       setMeetings(loadedMeetings)
@@ -1592,6 +1638,7 @@ function App() {
     const newBlock = {
       id: generateId(),
       ...blockData,
+      type: selectedTypeName || DEFAULT_TYPE_NAME,
       subtasks: blockData.subtasks.map(st => ({
         ...st,
         id: generateId()
@@ -1671,6 +1718,34 @@ function App() {
   const closeBlockModal = () => {
     setBlockModalOpen(false)
     setEditingBlock(null)
+  }
+
+  const applyTypeChanges = ({ finalTypes, renames, removedOriginalNames, newSelectedName }) => {
+    const typeOf = (b) => b.type || DEFAULT_TYPE_NAME
+    const renameBlock = (b) => {
+      const cur = typeOf(b)
+      return renames[cur] ? { ...b, type: renames[cur] } : b
+    }
+    const purge = (blocks) => blocks
+      .filter(b => !removedOriginalNames.includes(typeOf(b)))
+      .map(renameBlock)
+
+    setMasterBlocks(prev => {
+      const next = { ...prev, blocks: purge(prev.blocks) }
+      saveMasterBlocks(next)
+      return next
+    })
+    updateDailyState(prev => {
+      const keptBlocks = purge(prev.blocks)
+      const keptIds = new Set(keptBlocks.map(b => b.id))
+      return {
+        ...prev,
+        blocks: keptBlocks,
+        completed_block_ids: prev.completed_block_ids.filter(id => keptIds.has(id))
+      }
+    })
+    setTimeBlockTypes(finalTypes)
+    setSelectedTypeName(newSelectedName)
   }
 
   const deleteBlock = (blockId) => {
@@ -1811,6 +1886,7 @@ function App() {
       planTomorrow: planTomorrow,
       planTomorrowRight: planTomorrowRight,
       energyLevels: energyLevels,
+      timeBlockTypes: { types: timeBlockTypes, selectedName: selectedTypeName },
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -1870,7 +1946,7 @@ function App() {
     })
 
     // Apply loaded data - masterBlocks and kanbanTasks are direct arrays
-    const loadedMasterBlocks = { blocks: pendingLoadData.masterBlocks }
+    const loadedMasterBlocks = { blocks: migrateBlocksAddType(pendingLoadData.masterBlocks) }
     let loadedKanbanTasks = { tasks: pendingLoadData.kanbanTasks }
 
     saveMasterBlocks(loadedMasterBlocks)
@@ -1983,6 +2059,20 @@ function App() {
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
 
+    // Load time block types
+    const importedTypes = pendingLoadData.timeBlockTypes
+    const loadedTypes = importedTypes && Array.isArray(importedTypes.types) && importedTypes.types.length > 0
+      ? {
+          types: importedTypes.types.map(t => ({ id: t.id || generateId(), name: t.name })),
+          selectedName: importedTypes.selectedName || DEFAULT_TYPE_NAME
+        }
+      : getDefaultTimeBlockTypes()
+    const hasSelected = loadedTypes.types.some(t => t.name === loadedTypes.selectedName)
+    if (!hasSelected) loadedTypes.selectedName = loadedTypes.types[0]?.name || DEFAULT_TYPE_NAME
+    saveTimeBlockTypes(loadedTypes)
+    setTimeBlockTypes(loadedTypes.types)
+    setSelectedTypeName(loadedTypes.selectedName)
+
     setPendingLoadData(null)
     setLoadConfirmOpen(false)
   }
@@ -2075,6 +2165,11 @@ function App() {
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
+
+    const defaultTypes = getDefaultTimeBlockTypes()
+    saveTimeBlockTypes(defaultTypes)
+    setTimeBlockTypes(defaultTypes.types)
+    setSelectedTypeName(defaultTypes.selectedName)
 
     setResetConfirmOpen(false)
   }
@@ -2264,6 +2359,11 @@ function App() {
 
     saveSettings(defaultSettings)
     setSettings(defaultSettings)
+
+    const defaultTypes = getDefaultTimeBlockTypes()
+    saveTimeBlockTypes(defaultTypes)
+    setTimeBlockTypes(defaultTypes.types)
+    setSelectedTypeName(defaultTypes.selectedName)
 
     setDemoConfirmOpen(false)
   }
@@ -3420,16 +3520,20 @@ function App() {
 
   const today = getToday()
 
+  const inSelectedType = (block) => (block.type || DEFAULT_TYPE_NAME) === selectedTypeName
+
   const visibleBlocks = (dailyState?.blocks.filter(block => {
+    if (!inSelectedType(block)) return false
     if (block.completed) return false
     if (!dailyState.focus_mode) return true
     return block.repeat_days.includes(today)
   }) || []).sort((a, b) => a.start_time.localeCompare(b.start_time))
 
-  const completedBlocks = (dailyState?.blocks.filter(b => b.completed) || [])
+  const completedBlocks = (dailyState?.blocks.filter(b => inSelectedType(b) && b.completed) || [])
     .sort((a, b) => a.start_time.localeCompare(b.start_time))
 
   const totalBlocksToday = dailyState?.blocks.filter(b => {
+    if (!inSelectedType(b)) return false
     if (!dailyState.focus_mode) return true
     return b.repeat_days.includes(today)
   }).length || 0
@@ -3859,6 +3963,26 @@ function App() {
             }}
           >
             <div className="pane-drag-handle" draggable onDragStart={(e) => handlePaneDragStart(e, 'timeBlocks')} onDragEnd={handlePaneDragEnd}><GripVertical size={12} /></div>
+            {/* Type Switcher */}
+            <div className="time-block-types">
+              {timeBlockTypes.map(t => (
+                <button
+                  key={t.id}
+                  className={`type-pill${t.name === selectedTypeName ? ' active' : ''}`}
+                  onClick={() => setSelectedTypeName(t.name)}
+                  title={t.name}
+                >
+                  {t.name}
+                </button>
+              ))}
+              <button
+                className="time-block-types-edit"
+                onClick={() => setTypeManagerOpen(true)}
+                title="Edit types"
+              >
+                <Pencil size={14} />
+              </button>
+            </div>
             {/* Completed Habits Pills */}
             <div className="completed-habits">
               {completedBlocks.map(block => (
@@ -4850,6 +4974,18 @@ function App() {
         onSave={editingBlock ? (data) => updateBlock(editingBlock.id, data) : addBlock}
         onDelete={editingBlock ? () => deleteBlock(editingBlock.id) : null}
         editingBlock={editingBlock}
+      />
+
+      {/* Type Manager Modal */}
+      <TypeManagerModal
+        isOpen={typeManagerOpen}
+        onClose={() => setTypeManagerOpen(false)}
+        types={timeBlockTypes}
+        selectedName={selectedTypeName}
+        onApply={(args) => {
+          applyTypeChanges(args)
+          setTypeManagerOpen(false)
+        }}
       />
 
       {/* Add/Edit Task Modal */}
@@ -7364,6 +7500,186 @@ function AddRemindersModal({ isOpen, onClose, onSave }) {
           <button className="btn btn-primary" onClick={handleSave} disabled={!text.trim()}>Add</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ============================================
+// TYPE MANAGER MODAL
+// ============================================
+
+function TypeManagerModal({ isOpen, onClose, types, selectedName, onApply }) {
+  const [rows, setRows] = useState([])
+  const [removedOriginalNames, setRemovedOriginalNames] = useState([])
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, rowId: null })
+
+  useEffect(() => {
+    if (!isOpen) return
+    setRows(types.map(t => ({ id: t.id, name: t.name, originalName: t.name })))
+    setRemovedOriginalNames([])
+    setDeleteConfirm({ open: false, rowId: null })
+  }, [isOpen, types])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, isOpen)
+
+  if (!isOpen) return null
+
+  const trimmedName = (r) => (r.name || '').trim()
+  const isDuplicate = (rowId, name) => {
+    const target = name.toLowerCase()
+    if (!target) return false
+    return rows.some(r => r.id !== rowId && trimmedName(r).toLowerCase() === target)
+  }
+  const isEmpty = (r) => !trimmedName(r)
+  const hasErrors = rows.some(r => isEmpty(r) || isDuplicate(r.id, trimmedName(r)))
+  const canSave = rows.length > 0 && !hasErrors
+
+  const updateName = (rowId, value) => {
+    setRows(rows.map(r => r.id === rowId ? { ...r, name: value } : r))
+  }
+
+  const addRow = () => {
+    setRows([...rows, { id: generateId(), name: '', originalName: undefined }])
+  }
+
+  const moveUp = (index) => {
+    if (index <= 0) return
+    const next = [...rows]
+    ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+    setRows(next)
+  }
+
+  const moveDown = (index) => {
+    if (index >= rows.length - 1) return
+    const next = [...rows]
+    ;[next[index + 1], next[index]] = [next[index], next[index + 1]]
+    setRows(next)
+  }
+
+  const requestDelete = (rowId) => {
+    const row = rows.find(r => r.id === rowId)
+    if (!row) return
+    if (!row.originalName) {
+      setRows(rows.filter(r => r.id !== rowId))
+      return
+    }
+    setDeleteConfirm({ open: true, rowId })
+  }
+
+  const confirmDelete = () => {
+    const row = rows.find(r => r.id === deleteConfirm.rowId)
+    if (row?.originalName) {
+      setRemovedOriginalNames([...removedOriginalNames, row.originalName])
+    }
+    setRows(rows.filter(r => r.id !== deleteConfirm.rowId))
+    setDeleteConfirm({ open: false, rowId: null })
+  }
+
+  const handleSave = () => {
+    if (!canSave) return
+    const finalTypes = rows.map(r => ({ id: r.id, name: trimmedName(r) }))
+    const renames = {}
+    rows.forEach(r => {
+      const name = trimmedName(r)
+      if (r.originalName && r.originalName !== name) {
+        renames[r.originalName] = name
+      }
+    })
+
+    let newSelectedName
+    if (renames[selectedName]) {
+      newSelectedName = renames[selectedName]
+    } else if (removedOriginalNames.includes(selectedName)) {
+      newSelectedName = finalTypes[0]?.name || DEFAULT_TYPE_NAME
+    } else {
+      newSelectedName = selectedName
+    }
+
+    onApply({ finalTypes, renames, removedOriginalNames, newSelectedName })
+  }
+
+  const deleteTarget = rows.find(r => r.id === deleteConfirm.rowId)
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+      <div className="modal" ref={modalRef} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Edit Types</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+
+        <div className="modal-body">
+          {rows.map((r, i) => {
+            const name = trimmedName(r)
+            const dup = isDuplicate(r.id, name)
+            const empty = isEmpty(r)
+            const invalid = dup || empty
+            return (
+              <div key={r.id} className="type-manager-row">
+                <input
+                  type="text"
+                  className={`form-input${invalid ? ' invalid' : ''}`}
+                  placeholder="Type name"
+                  value={r.name}
+                  onChange={e => updateName(r.id, e.target.value)}
+                />
+                <button
+                  className="subtask-move"
+                  onClick={() => moveUp(i)}
+                  disabled={i === 0}
+                  aria-label="Move type up"
+                  title="Move up"
+                >↑</button>
+                <button
+                  className="subtask-move"
+                  onClick={() => moveDown(i)}
+                  disabled={i === rows.length - 1}
+                  aria-label="Move type down"
+                  title="Move down"
+                >↓</button>
+                <button
+                  className="subtask-remove"
+                  onClick={() => requestDelete(r.id)}
+                  disabled={rows.length === 1}
+                  aria-label="Remove type"
+                  title={rows.length === 1 ? 'At least one type is required' : 'Remove type'}
+                >&times;</button>
+              </div>
+            )
+          })}
+          <button className="add-subtask-btn" onClick={addRow}>+ Add Type</button>
+          {hasErrors && (
+            <p className="confirm-message" style={{ color: 'var(--danger, #b00)' }}>
+              Fix empty or duplicate names before saving.
+            </p>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <div className="modal-footer-right">
+            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={!canSave}>Save</button>
+          </div>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, rowId: null })}
+        onConfirm={confirmDelete}
+        title="Remove Type"
+        message={`Removing type "${deleteTarget?.originalName || ''}" will delete all time blocks under this type. This cannot be undone.`}
+      />
     </div>
   )
 }

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Time block Types (categories) — create multiple schedule types (e.g. default, work, study, holiday) and switch between them via a horizontal pill row above the completed-habit pills. Each block is pinned to the type under which it was created. A pencil edit button opens a manager modal to add, rename, remove, and reorder types; deletions warn first and remove all blocks of that type. Types persist across reloads and are included in backup/import; existing blocks migrate silently to `default`.
 - Reorder subtasks in the Add/Edit Block modal with up/down arrow buttons — first/last items have their respective arrow disabled, and the new order persists to local storage on save.
 - Quote pane in the Cognitive Load column with a gear-icon settings modal — paste quotes (one per line, last " - " separates text from source), pick fixed/hourly/daily mode (deterministic hash of YYYY-MM-DD or YYYY-MM-DD-HH), and live preview of the currently displayed quote.
 - Outline for Tomorrow pane in the Habits column with two side-by-side textareas separated by a draggable resizable divider (persisted as %), expand/shrink resize buttons (optimal height based on tallest textarea), copy-all, clear, and toggle via Worm icon.
