@@ -789,6 +789,255 @@ const initializeDailyState = (masterBlocks, existingDailyState) => {
 }
 
 // ============================================
+// PRIORITY OVERLAY HELPERS
+// ============================================
+
+const parseEstimateToMinutes = (value) => {
+  if (!value || !String(value).trim()) return 0
+  const s = String(value).trim()
+  if (s.includes(':')) {
+    const [h, m] = s.split(':').map(Number)
+    return (h || 0) * 60 + (m || 0)
+  }
+  const n = parseInt(s, 10)
+  return isNaN(n) ? 0 : n
+}
+
+const formatMinutesToHHMM = (minutes) => {
+  const m = Math.max(0, Math.round(minutes || 0))
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+}
+
+const formatMs = (ms) => {
+  if (!ms || ms < 0) return '00:00'
+  const totalMinutes = Math.floor(ms / 60000)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+// ============================================
+// PRIORITY OVERLAY COMPONENT
+// ============================================
+
+function PriorityOverlay({ initialList, onClose, onPersist }) {
+  const [list, setList] = useState(initialList)
+  const [dragIndex, setDragIndex] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
+  const estimateBeforeFocus = useRef('')
+  const [, setTick] = useState(0)
+
+  // Live tick — only runs while overlay mounted AND a timer is running
+  const runningKey = list.items.map(i => !!i.runningSince).join(',')
+  useEffect(() => {
+    if (!list.items.some(item => item.runningSince)) return
+    const interval = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runningKey])
+
+  // Update local state and persist (for discrete actions: add/delete/start/finish/reorder/blur)
+  const setAndPersist = (updater) => {
+    setList(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      onPersist(next)
+      return next
+    })
+  }
+
+  // Update local state only (for keystrokes — persistence deferred to blur/close)
+  const setLocal = (updater) => {
+    setList(prev => (typeof updater === 'function' ? updater(prev) : updater))
+  }
+
+  const close = () => {
+    onPersist(list)
+    onClose()
+  }
+
+  const addItem = () => {
+    setAndPersist(prev => ({
+      ...prev,
+      items: [...prev.items, { id: generateId(), text: '', estimate: '', totalMs: 0, runningSince: null, finished: false }]
+    }))
+  }
+
+  const updateItemLocal = (id, changes) => {
+    setLocal(prev => ({
+      ...prev,
+      items: prev.items.map(item => item.id === id ? { ...item, ...changes } : item)
+    }))
+  }
+
+  const updateItemPersist = (id, changes) => {
+    setAndPersist(prev => ({
+      ...prev,
+      items: prev.items.map(item => item.id === id ? { ...item, ...changes } : item)
+    }))
+  }
+
+  const deleteItem = (id) => {
+    setAndPersist(prev => ({ ...prev, items: prev.items.filter(item => item.id !== id) }))
+  }
+
+  const toggleTimer = (id) => {
+    setAndPersist(prev => ({
+      ...prev,
+      items: prev.items.map(item => {
+        if (item.id !== id) return item
+        if (item.runningSince) {
+          const elapsed = Date.now() - item.runningSince
+          return { ...item, totalMs: (item.totalMs || 0) + elapsed, runningSince: null }
+        }
+        return { ...item, runningSince: Date.now() }
+      })
+    }))
+  }
+
+  const toggleFinish = (id) => {
+    setAndPersist(prev => ({
+      ...prev,
+      items: prev.items.map(item => {
+        if (item.id !== id) return item
+        if (!item.finished && item.runningSince) {
+          const elapsed = Date.now() - item.runningSince
+          return { ...item, finished: true, totalMs: (item.totalMs || 0) + elapsed, runningSince: null }
+        }
+        return { ...item, finished: !item.finished }
+      })
+    }))
+  }
+
+  const handleDragStart = (e, index) => {
+    setDragIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `priority-${index}`)
+  }
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  const handleDrop = (e, toIndex) => {
+    e.preventDefault()
+    if (dragIndex !== null && dragIndex !== toIndex) {
+      setAndPersist(prev => {
+        const updated = [...prev.items]
+        const [moved] = updated.splice(dragIndex, 1)
+        updated.splice(toIndex, 0, moved)
+        return { ...prev, items: updated }
+      })
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
+  return (
+    <div className="priority-overlay">
+      <div className="priority-panel">
+        <div className="priority-header">
+          <span className="priority-label">Ultrafocus: Get it done NOW, no matter what!</span>
+          <button className="priority-close" onClick={close}><X size={20} /></button>
+        </div>
+        <div className="priority-items">
+          {list.items.map((item, index) => {
+            const liveMs = item.runningSince ? (item.totalMs || 0) + (Date.now() - item.runningSince) : (item.totalMs || 0)
+            const estimateMs = parseEstimateToMinutes(item.estimate) * 60000
+            const progressPct = estimateMs > 0 ? Math.min((liveMs / estimateMs) * 100, 100) : 0
+            const overEstimate = estimateMs > 0 && liveMs > estimateMs
+            return (
+              <div
+                key={item.id}
+                className={`priority-row${item.finished ? ' finished' : ''}${dragIndex === index ? ' dragging' : ''}${dragOverIndex === index && dragIndex !== index ? ' drag-over' : ''}`}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={(e) => handleDrop(e, index)}
+              >
+                <input
+                  type="text"
+                  className="priority-estimate"
+                  value={item.estimate || ''}
+                  onFocus={() => {
+                    estimateBeforeFocus.current = item.estimate || ''
+                    updateItemLocal(item.id, { estimate: '' })
+                  }}
+                  onChange={(e) => updateItemLocal(item.id, { estimate: e.target.value })}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim()
+                    if (!raw) {
+                      updateItemPersist(item.id, { estimate: estimateBeforeFocus.current })
+                    } else {
+                      const minutes = parseEstimateToMinutes(raw)
+                      updateItemPersist(item.id, { estimate: minutes > 0 ? formatMinutesToHHMM(minutes) : '' })
+                    }
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                  placeholder="00:00"
+                  disabled={item.finished}
+                />
+                <span className="priority-actual">{formatMs(liveMs)}</span>
+                <input
+                  type="text"
+                  className="priority-text"
+                  value={item.text}
+                  onChange={(e) => updateItemLocal(item.id, { text: e.target.value })}
+                  onBlur={(e) => updateItemPersist(item.id, { text: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                  placeholder="Task..."
+                  disabled={item.finished}
+                />
+                <button
+                  className={`priority-btn start ${item.runningSince ? 'running' : ''}`}
+                  onClick={() => toggleTimer(item.id)}
+                  disabled={item.finished}
+                >
+                  {item.runningSince ? 'Stop' : 'Start'}
+                </button>
+                <button
+                  className={`priority-btn finish ${item.finished ? 'done' : ''}`}
+                  onClick={() => toggleFinish(item.id)}
+                >
+                  Finish
+                </button>
+                <button
+                  className="priority-btn delete"
+                  onClick={() => deleteItem(item.id)}
+                  title="Delete item"
+                >
+                  <Trash2 size={16} />
+                </button>
+                <div
+                  className="priority-drag-handle"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <GripVertical size={20} />
+                </div>
+                {estimateMs > 0 && (
+                  <div className="priority-progress">
+                    <div className={`priority-progress-bar${overEstimate ? ' over' : ''}`} style={{ width: `${progressPct}%` }} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <button className="priority-add" onClick={addItem}>
+          <Plus size={18} /> Add item
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // MAIN APP COMPONENT
 // ============================================
 
@@ -1331,9 +1580,6 @@ function App() {
   // Priority list overlay state
   const [priorityListOpen, setPriorityListOpen] = useState(false)
   const [priorityList, setPriorityList] = useState(getDefaultPriorityList())
-  const [priorityDragIndex, setPriorityDragIndex] = useState(null)
-  const [priorityDragOverIndex, setPriorityDragOverIndex] = useState(null)
-  const priorityEstimateBeforeFocus = useRef('')
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' })
@@ -3163,128 +3409,10 @@ function App() {
     setFocusDragOverIndex(null)
   }
 
-  // Priority list handlers
-  const updatePriorityList = (updater) => {
-    setPriorityList(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      savePriorityList(next)
-      return next
-    })
-  }
-
-  const addPriorityItem = () => {
-    updatePriorityList(prev => ({
-      ...prev,
-      items: [...prev.items, { id: generateId(), text: '', estimate: '', totalMs: 0, runningSince: null, finished: false }]
-    }))
-  }
-
-  const updatePriorityItem = (id, changes) => {
-    updatePriorityList(prev => ({
-      ...prev,
-      items: prev.items.map(item => item.id === id ? { ...item, ...changes } : item)
-    }))
-  }
-
-  const deletePriorityItem = (id) => {
-    updatePriorityList(prev => ({
-      ...prev,
-      items: prev.items.filter(item => item.id !== id)
-    }))
-  }
-
-  const togglePriorityTimer = (id) => {
-    updatePriorityList(prev => ({
-      ...prev,
-      items: prev.items.map(item => {
-        if (item.id !== id) return item
-        if (item.runningSince) {
-          const elapsed = Date.now() - item.runningSince
-          return { ...item, totalMs: (item.totalMs || 0) + elapsed, runningSince: null }
-        }
-        return { ...item, runningSince: Date.now() }
-      })
-    }))
-  }
-
-  const togglePriorityFinish = (id) => {
-    updatePriorityList(prev => ({
-      ...prev,
-      items: prev.items.map(item => {
-        if (item.id !== id) return item
-        if (!item.finished && item.runningSince) {
-          const elapsed = Date.now() - item.runningSince
-          return { ...item, finished: true, totalMs: (item.totalMs || 0) + elapsed, runningSince: null }
-        }
-        return { ...item, finished: !item.finished }
-      })
-    }))
-  }
-
-  const handlePriorityDragStart = (e, index) => {
-    setPriorityDragIndex(index)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', `priority-${index}`)
-  }
-
-  const handlePriorityDragOver = (e, index) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setPriorityDragOverIndex(index)
-  }
-
-  const handlePriorityDrop = (e, toIndex) => {
-    e.preventDefault()
-    if (priorityDragIndex !== null && priorityDragIndex !== toIndex) {
-      updatePriorityList(prev => {
-        const updated = [...prev.items]
-        const [moved] = updated.splice(priorityDragIndex, 1)
-        updated.splice(toIndex, 0, moved)
-        return { ...prev, items: updated }
-      })
-    }
-    setPriorityDragIndex(null)
-    setPriorityDragOverIndex(null)
-  }
-
-  const handlePriorityDragEnd = () => {
-    setPriorityDragIndex(null)
-    setPriorityDragOverIndex(null)
-  }
-
-  // Live tick for running priority items
-  const [, setPriorityTick] = useState(0)
-  const priorityRunningKey = priorityList.items.map(i => !!i.runningSince).join(',')
-  useEffect(() => {
-    const hasRunning = priorityList.items.some(item => item.runningSince)
-    if (!hasRunning) return
-    const interval = setInterval(() => setPriorityTick(t => t + 1), 1000)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priorityRunningKey])
-
-  const parseEstimateToMinutes = (value) => {
-    if (!value || !String(value).trim()) return 0
-    const s = String(value).trim()
-    if (s.includes(':')) {
-      const [h, m] = s.split(':').map(Number)
-      return (h || 0) * 60 + (m || 0)
-    }
-    const n = parseInt(s, 10)
-    return isNaN(n) ? 0 : n
-  }
-
-  const formatMinutesToHHMM = (minutes) => {
-    const m = Math.max(0, Math.round(minutes || 0))
-    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-  }
-
-  const formatMs = (ms) => {
-    if (!ms || ms < 0) return '00:00'
-    const totalMinutes = Math.floor(ms / 60000)
-    const h = Math.floor(totalMinutes / 60)
-    const m = totalMinutes % 60
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  // Priority overlay persistence — invoked by overlay subcomponent on discrete actions, blur, and close.
+  const persistPriorityList = (next) => {
+    setPriorityList(next)
+    savePriorityList(next)
   }
 
   // Pane reorder DnD handlers
@@ -5013,99 +5141,11 @@ function App() {
 
       {/* Priority List Overlay */}
       {priorityListOpen && (
-        <div className="priority-overlay">
-          <div className="priority-panel">
-            <div className="priority-header">
-              <span className="priority-label">Ultrafocus: Get it done NOW, no matter what!</span>
-              <button className="priority-close" onClick={() => setPriorityListOpen(false)}><X size={20} /></button>
-            </div>
-            <div className="priority-items">
-              {priorityList.items.map((item, index) => {
-                const liveMs = item.runningSince ? (item.totalMs || 0) + (Date.now() - item.runningSince) : (item.totalMs || 0)
-                const estimateMs = parseEstimateToMinutes(item.estimate) * 60000
-                const progressPct = estimateMs > 0 ? Math.min((liveMs / estimateMs) * 100, 100) : 0
-                const overEstimate = estimateMs > 0 && liveMs > estimateMs
-                return (
-                  <div
-                    key={item.id}
-                    className={`priority-row${item.finished ? ' finished' : ''}${priorityDragIndex === index ? ' dragging' : ''}${priorityDragOverIndex === index && priorityDragIndex !== index ? ' drag-over' : ''}`}
-                    onDragOver={(e) => handlePriorityDragOver(e, index)}
-                    onDrop={(e) => handlePriorityDrop(e, index)}
-                  >
-                    <input
-                      type="text"
-                      className="priority-estimate"
-                      value={item.estimate || ''}
-                      onFocus={() => {
-                        priorityEstimateBeforeFocus.current = item.estimate || ''
-                        updatePriorityItem(item.id, { estimate: '' })
-                      }}
-                      onChange={(e) => updatePriorityItem(item.id, { estimate: e.target.value })}
-                      onBlur={(e) => {
-                        const raw = e.target.value.trim()
-                        if (!raw) {
-                          updatePriorityItem(item.id, { estimate: priorityEstimateBeforeFocus.current })
-                        } else {
-                          const minutes = parseEstimateToMinutes(raw)
-                          updatePriorityItem(item.id, { estimate: minutes > 0 ? formatMinutesToHHMM(minutes) : '' })
-                        }
-                      }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
-                      placeholder="00:00"
-                      disabled={item.finished}
-                    />
-                    <span className="priority-actual">{formatMs(liveMs)}</span>
-                    <input
-                      type="text"
-                      className="priority-text"
-                      value={item.text}
-                      onChange={(e) => updatePriorityItem(item.id, { text: e.target.value })}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
-                      placeholder="Task..."
-                      disabled={item.finished}
-                    />
-                    <button
-                      className={`priority-btn start ${item.runningSince ? 'running' : ''}`}
-                      onClick={() => togglePriorityTimer(item.id)}
-                      disabled={item.finished}
-                    >
-                      {item.runningSince ? 'Stop' : 'Start'}
-                    </button>
-                    <button
-                      className={`priority-btn finish ${item.finished ? 'done' : ''}`}
-                      onClick={() => togglePriorityFinish(item.id)}
-                    >
-                      Finish
-                    </button>
-                    <button
-                      className="priority-btn delete"
-                      onClick={() => deletePriorityItem(item.id)}
-                      title="Delete item"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <div
-                      className="priority-drag-handle"
-                      draggable
-                      onDragStart={(e) => handlePriorityDragStart(e, index)}
-                      onDragEnd={handlePriorityDragEnd}
-                    >
-                      <GripVertical size={20} />
-                    </div>
-                    {estimateMs > 0 && (
-                      <div className="priority-progress">
-                        <div className={`priority-progress-bar${overEstimate ? ' over' : ''}`} style={{ width: `${progressPct}%` }} />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            <button className="priority-add" onClick={addPriorityItem}>
-              <Plus size={18} /> Add item
-            </button>
-          </div>
-        </div>
+        <PriorityOverlay
+          initialList={priorityList}
+          onClose={() => setPriorityListOpen(false)}
+          onPersist={persistPriorityList}
+        />
       )}
 
       {/* Habit Tracker Drawer */}
