@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, Quote, RotateCcw, Settings, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, Worm, X } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, Plus, Quote, RotateCcw, Settings, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, TriangleAlert, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, Worm, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -210,6 +210,7 @@ const STORAGE_KEYS = {
   FASTING: 'touchtask_fasting',
   QUOTE: 'touchtask_quote',
   TIME_BLOCK_TYPES: 'touchtask_time_block_types',
+  PRIORITY_LIST: 'touchtask_priority_list',
 }
 
 const DEFAULT_TYPE_NAME = 'default'
@@ -707,6 +708,26 @@ const saveStickyNotes = (data) => {
 
 const saveFocusChecklist = (data) => {
   localStorage.setItem(STORAGE_KEYS.FOCUS_CHECKLIST, JSON.stringify(data))
+}
+
+const getDefaultPriorityList = () => ({ items: [] })
+
+const loadPriorityList = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.PRIORITY_LIST)
+    if (data) {
+      const parsed = JSON.parse(data)
+      if (parsed && Array.isArray(parsed.items)) return parsed
+    }
+    return getDefaultPriorityList()
+  } catch (e) {
+    console.error('Error loading priority list:', e)
+    return getDefaultPriorityList()
+  }
+}
+
+const savePriorityList = (data) => {
+  localStorage.setItem(STORAGE_KEYS.PRIORITY_LIST, JSON.stringify(data))
 }
 
 const DEFAULT_FOCUS_ORDER = ['notificationsOff', 'messagesOff', 'phoneSilenced', 'alertsMuted', 'browsersClosed', 'wifiOff', 'monitorOff', 'musicOn', 'doorClosed']
@@ -1307,6 +1328,13 @@ function App() {
   const [whiteboardDrawerOpen, setWhiteboardDrawerOpen] = useState(false)
   const [whiteboardsData, setWhiteboardsData] = useState(getDefaultWhiteboards())
 
+  // Priority list overlay state
+  const [priorityListOpen, setPriorityListOpen] = useState(false)
+  const [priorityList, setPriorityList] = useState(getDefaultPriorityList())
+  const [priorityDragIndex, setPriorityDragIndex] = useState(null)
+  const [priorityDragOverIndex, setPriorityDragOverIndex] = useState(null)
+  const priorityEstimateBeforeFocus = useRef('')
+
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '' })
   const showAlert = (title, message) => setAlertDialog({ isOpen: true, title, message })
@@ -1389,6 +1417,8 @@ function App() {
       console.log('TouchTask: Whiteboards loaded', loadedWhiteboards)
       const loadedStickyNotes = clampNotesToViewport(loadStickyNotes(), window.innerWidth, window.innerHeight)
       console.log('TouchTask: Sticky notes loaded', loadedStickyNotes)
+      const loadedPriorityList = loadPriorityList()
+      console.log('TouchTask: Priority list loaded', loadedPriorityList)
 
       const loadedTypes = loadTimeBlockTypes()
       console.log('TouchTask: Time block types loaded', loadedTypes)
@@ -1406,6 +1436,7 @@ function App() {
       setThemes(loadedThemes)
       setWhiteboardsData(loadedWhiteboards)
       setStickyNotes(loadedStickyNotes)
+      setPriorityList(loadedPriorityList)
       setSettings(appSettings)
       setTimerState(prev => {
         if (localStorage.getItem(STORAGE_KEYS.POMODORO_TIMER)) return prev
@@ -1467,7 +1498,7 @@ function App() {
   useEffect(() => {
     if (!habitDrawerOpen) return
     const handleClickOutside = (e) => {
-      if (e.target.closest('.habit-tracker-drawer') || e.target.closest('.drawer-trigger') || e.target.closest('.modal-overlay')) return
+      if (e.target.closest('.habit-tracker-drawer') || e.target.closest('.drawer-trigger') || e.target.closest('.modal-overlay') || e.target.closest('.priority-overlay')) return
       setHabitDrawerOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -1887,6 +1918,7 @@ function App() {
       planTomorrowRight: planTomorrowRight,
       energyLevels: energyLevels,
       timeBlockTypes: { types: timeBlockTypes, selectedName: selectedTypeName },
+      priorityList: priorityList.items,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -2072,6 +2104,11 @@ function App() {
     saveTimeBlockTypes(loadedTypes)
     setTimeBlockTypes(loadedTypes.types)
     setSelectedTypeName(loadedTypes.selectedName)
+
+    // Load priority list
+    const loadedPriority = { items: Array.isArray(pendingLoadData.priorityList) ? pendingLoadData.priorityList : [] }
+    savePriorityList(loadedPriority)
+    setPriorityList(loadedPriority)
 
     setPendingLoadData(null)
     setLoadConfirmOpen(false)
@@ -3124,6 +3161,130 @@ function App() {
   const handleFocusDragEnd = () => {
     setFocusDragIndex(null)
     setFocusDragOverIndex(null)
+  }
+
+  // Priority list handlers
+  const updatePriorityList = (updater) => {
+    setPriorityList(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      savePriorityList(next)
+      return next
+    })
+  }
+
+  const addPriorityItem = () => {
+    updatePriorityList(prev => ({
+      ...prev,
+      items: [...prev.items, { id: generateId(), text: '', estimate: '', totalMs: 0, runningSince: null, finished: false }]
+    }))
+  }
+
+  const updatePriorityItem = (id, changes) => {
+    updatePriorityList(prev => ({
+      ...prev,
+      items: prev.items.map(item => item.id === id ? { ...item, ...changes } : item)
+    }))
+  }
+
+  const deletePriorityItem = (id) => {
+    updatePriorityList(prev => ({
+      ...prev,
+      items: prev.items.filter(item => item.id !== id)
+    }))
+  }
+
+  const togglePriorityTimer = (id) => {
+    updatePriorityList(prev => ({
+      ...prev,
+      items: prev.items.map(item => {
+        if (item.id !== id) return item
+        if (item.runningSince) {
+          const elapsed = Date.now() - item.runningSince
+          return { ...item, totalMs: (item.totalMs || 0) + elapsed, runningSince: null }
+        }
+        return { ...item, runningSince: Date.now() }
+      })
+    }))
+  }
+
+  const togglePriorityFinish = (id) => {
+    updatePriorityList(prev => ({
+      ...prev,
+      items: prev.items.map(item => {
+        if (item.id !== id) return item
+        if (!item.finished && item.runningSince) {
+          const elapsed = Date.now() - item.runningSince
+          return { ...item, finished: true, totalMs: (item.totalMs || 0) + elapsed, runningSince: null }
+        }
+        return { ...item, finished: !item.finished }
+      })
+    }))
+  }
+
+  const handlePriorityDragStart = (e, index) => {
+    setPriorityDragIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `priority-${index}`)
+  }
+
+  const handlePriorityDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setPriorityDragOverIndex(index)
+  }
+
+  const handlePriorityDrop = (e, toIndex) => {
+    e.preventDefault()
+    if (priorityDragIndex !== null && priorityDragIndex !== toIndex) {
+      updatePriorityList(prev => {
+        const updated = [...prev.items]
+        const [moved] = updated.splice(priorityDragIndex, 1)
+        updated.splice(toIndex, 0, moved)
+        return { ...prev, items: updated }
+      })
+    }
+    setPriorityDragIndex(null)
+    setPriorityDragOverIndex(null)
+  }
+
+  const handlePriorityDragEnd = () => {
+    setPriorityDragIndex(null)
+    setPriorityDragOverIndex(null)
+  }
+
+  // Live tick for running priority items
+  const [, setPriorityTick] = useState(0)
+  const priorityRunningKey = priorityList.items.map(i => !!i.runningSince).join(',')
+  useEffect(() => {
+    const hasRunning = priorityList.items.some(item => item.runningSince)
+    if (!hasRunning) return
+    const interval = setInterval(() => setPriorityTick(t => t + 1), 1000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priorityRunningKey])
+
+  const parseEstimateToMinutes = (value) => {
+    if (!value || !String(value).trim()) return 0
+    const s = String(value).trim()
+    if (s.includes(':')) {
+      const [h, m] = s.split(':').map(Number)
+      return (h || 0) * 60 + (m || 0)
+    }
+    const n = parseInt(s, 10)
+    return isNaN(n) ? 0 : n
+  }
+
+  const formatMinutesToHHMM = (minutes) => {
+    const m = Math.max(0, Math.round(minutes || 0))
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+  }
+
+  const formatMs = (ms) => {
+    if (!ms || ms < 0) return '00:00'
+    const totalMinutes = Math.floor(ms / 60000)
+    const h = Math.floor(totalMinutes / 60)
+    const m = totalMinutes % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   }
 
   // Pane reorder DnD handlers
@@ -4840,6 +5001,110 @@ function App() {
           >
             <Columns4 size={18} />
           </button>
+          <button
+            className={`drawer-trigger ${priorityListOpen ? 'active' : ''}`}
+            onClick={() => { setPriorityListOpen(!priorityListOpen); setSecondDrawerOpen(false); setHabitDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
+            title={priorityListOpen ? 'Close priority list' : 'Open priority list'}
+          >
+            <TriangleAlert size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* Priority List Overlay */}
+      {priorityListOpen && (
+        <div className="priority-overlay">
+          <div className="priority-panel">
+            <div className="priority-header">
+              <span className="priority-label">Ultrafocus: Get it done NOW, no matter what!</span>
+              <button className="priority-close" onClick={() => setPriorityListOpen(false)}><X size={20} /></button>
+            </div>
+            <div className="priority-items">
+              {priorityList.items.map((item, index) => {
+                const liveMs = item.runningSince ? (item.totalMs || 0) + (Date.now() - item.runningSince) : (item.totalMs || 0)
+                const estimateMs = parseEstimateToMinutes(item.estimate) * 60000
+                const progressPct = estimateMs > 0 ? Math.min((liveMs / estimateMs) * 100, 100) : 0
+                const overEstimate = estimateMs > 0 && liveMs > estimateMs
+                return (
+                  <div
+                    key={item.id}
+                    className={`priority-row${item.finished ? ' finished' : ''}${priorityDragIndex === index ? ' dragging' : ''}${priorityDragOverIndex === index && priorityDragIndex !== index ? ' drag-over' : ''}`}
+                    onDragOver={(e) => handlePriorityDragOver(e, index)}
+                    onDrop={(e) => handlePriorityDrop(e, index)}
+                  >
+                    <input
+                      type="text"
+                      className="priority-estimate"
+                      value={item.estimate || ''}
+                      onFocus={() => {
+                        priorityEstimateBeforeFocus.current = item.estimate || ''
+                        updatePriorityItem(item.id, { estimate: '' })
+                      }}
+                      onChange={(e) => updatePriorityItem(item.id, { estimate: e.target.value })}
+                      onBlur={(e) => {
+                        const raw = e.target.value.trim()
+                        if (!raw) {
+                          updatePriorityItem(item.id, { estimate: priorityEstimateBeforeFocus.current })
+                        } else {
+                          const minutes = parseEstimateToMinutes(raw)
+                          updatePriorityItem(item.id, { estimate: minutes > 0 ? formatMinutesToHHMM(minutes) : '' })
+                        }
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                      placeholder="00:00"
+                      disabled={item.finished}
+                    />
+                    <span className="priority-actual">{formatMs(liveMs)}</span>
+                    <input
+                      type="text"
+                      className="priority-text"
+                      value={item.text}
+                      onChange={(e) => updatePriorityItem(item.id, { text: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                      placeholder="Task..."
+                      disabled={item.finished}
+                    />
+                    <button
+                      className={`priority-btn start ${item.runningSince ? 'running' : ''}`}
+                      onClick={() => togglePriorityTimer(item.id)}
+                      disabled={item.finished}
+                    >
+                      {item.runningSince ? 'Stop' : 'Start'}
+                    </button>
+                    <button
+                      className={`priority-btn finish ${item.finished ? 'done' : ''}`}
+                      onClick={() => togglePriorityFinish(item.id)}
+                    >
+                      Finish
+                    </button>
+                    <button
+                      className="priority-btn delete"
+                      onClick={() => deletePriorityItem(item.id)}
+                      title="Delete item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <div
+                      className="priority-drag-handle"
+                      draggable
+                      onDragStart={(e) => handlePriorityDragStart(e, index)}
+                      onDragEnd={handlePriorityDragEnd}
+                    >
+                      <GripVertical size={20} />
+                    </div>
+                    {estimateMs > 0 && (
+                      <div className="priority-progress">
+                        <div className={`priority-progress-bar${overEstimate ? ' over' : ''}`} style={{ width: `${progressPct}%` }} />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <button className="priority-add" onClick={addPriorityItem}>
+              <Plus size={18} /> Add item
+            </button>
+          </div>
         </div>
       )}
 
