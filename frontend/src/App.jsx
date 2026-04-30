@@ -3964,7 +3964,7 @@ function App() {
           </a>
           <div className="topbar-date">{dateString}</div>
           <div className="topbar-menu">
-            <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
+            <button className="menu-toggle" aria-label="Toggle menu" onClick={() => setMenuOpen(!menuOpen)}>
               <Menu size={20} />
             </button>
             {menuOpen && (
@@ -4573,6 +4573,7 @@ function App() {
                       key={key}
                       className={`focus-checklist-btn ${isOn ? 'on' : 'off'}${focusDragIndex === index ? ' dragging' : ''}${focusDragOverIndex === index && focusDragIndex !== index ? ' drag-over' : ''}`}
                       onClick={() => toggleFocusItem(key)}
+                      aria-label={isOn ? cfg.onTip : cfg.offTip}
                       data-tooltip={isOn ? cfg.onTip : cfg.offTip}
                       onMouseEnter={showFocusTooltip} onMouseLeave={hideFocusTooltip}
                       draggable
@@ -4704,6 +4705,7 @@ function App() {
                   </div>
                   <button
                     className={`bell-toggle ${!bellEnabled ? 'muted' : ''}`}
+                    aria-label={bellEnabled ? 'Mute bell' : 'Enable bell'}
                     onClick={() => setBellEnabled(!bellEnabled)}
                   >
                     {bellEnabled ? <Bell size={16} /> : <BellOff size={16} />}
@@ -4794,6 +4796,7 @@ function App() {
                     <input
                       type="text"
                       className="break-timer-field"
+                      aria-label="Break duration in minutes"
                       value={Math.ceil(breakTimeRemaining / 60)}
                       onChange={(e) => {
                         const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
@@ -5813,7 +5816,7 @@ function TimeBlock({ block, currentTime, onToggleMinimized, onCycleSubtask, onCo
   return (
     <article className={`task-block ${block.minimized ? 'minimized' : ''}`} onClick={handleBlockClick}>
       <div className="block-action-buttons">
-        <button className="edit-btn" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+        <button className="edit-btn" aria-label="Edit task" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
           <Pencil size={12} />
         </button>
         <button className="skip-btn" onClick={(e) => { e.stopPropagation(); onSkip(); }}>
@@ -8354,6 +8357,7 @@ function FastingStartModal({ isOpen, onClose, onStart, defaultGoalMinutes }) {
                   <input
                     type="text"
                     className="break-timer-field"
+                    aria-label="Fasting duration hours"
                     value={durationHours}
                     onChange={(e) => {
                       const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
@@ -8374,6 +8378,7 @@ function FastingStartModal({ isOpen, onClose, onStart, defaultGoalMinutes }) {
                   <input
                     type="text"
                     className="break-timer-field"
+                    aria-label="Fasting duration minutes"
                     value={durationMinutes}
                     onChange={(e) => {
                       const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
