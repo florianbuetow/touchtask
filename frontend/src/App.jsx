@@ -827,6 +827,22 @@ function PriorityOverlay({ initialList, onClose, onPersist }) {
   const estimateBeforeFocus = useRef('')
   const [, setTick] = useState(0)
 
+  // Refs mirror latest state/callback so the unmount-flush sees the post-commit
+  // values regardless of which dismissal path triggered the unmount, and avoids
+  // the stale-closure race where close() would overwrite a fresher blur save.
+  const listRef = useRef(list)
+  listRef.current = list
+  const onPersistRef = useRef(onPersist)
+  onPersistRef.current = onPersist
+  useEffect(() => () => {
+    // Defer to a microtask: cleanup runs during the parent re-render that unmounts us,
+    // and onPersist calls setState on App. Calling it inline triggers React's
+    // "setState while rendering a different component" warning.
+    const persist = onPersistRef.current
+    const snapshot = listRef.current
+    queueMicrotask(() => persist(snapshot))
+  }, [])
+
   // Live tick — only runs while overlay mounted AND a timer is running
   const runningKey = list.items.map(i => !!i.runningSince).join(',')
   useEffect(() => {
@@ -836,23 +852,20 @@ function PriorityOverlay({ initialList, onClose, onPersist }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runningKey])
 
-  // Update local state and persist (for discrete actions: add/delete/start/finish/reorder/blur)
+  // Update local state and persist (for discrete actions: add/delete/start/finish/reorder/blur).
+  // Compute next from the ref so we always read the latest committed state, then call setState
+  // and onPersist outside the state updater to avoid triggering React's
+  // "setState while rendering a different component" warning.
   const setAndPersist = (updater) => {
-    setList(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      onPersist(next)
-      return next
-    })
+    const next = typeof updater === 'function' ? updater(listRef.current) : updater
+    setList(next)
+    onPersist(next)
   }
 
   // Update local state only (for keystrokes — persistence deferred to blur/close)
   const setLocal = (updater) => {
-    setList(prev => (typeof updater === 'function' ? updater(prev) : updater))
-  }
-
-  const close = () => {
-    onPersist(list)
-    onClose()
+    const next = typeof updater === 'function' ? updater(listRef.current) : updater
+    setList(next)
   }
 
   const addItem = () => {
@@ -912,6 +925,8 @@ function PriorityOverlay({ initialList, onClose, onPersist }) {
     setDragIndex(index)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', `priority-${index}`)
+    const row = e.target.closest('.priority-row')
+    if (row) e.dataTransfer.setDragImage(row, row.offsetWidth - 30, row.offsetHeight / 2)
   }
 
   const handleDragOver = (e, index) => {
@@ -944,7 +959,7 @@ function PriorityOverlay({ initialList, onClose, onPersist }) {
       <div className="priority-panel">
         <div className="priority-header">
           <span className="priority-label">Ultrafocus: Get it done NOW, no matter what!</span>
-          <button className="priority-close" onClick={close}><X size={20} /></button>
+          <button className="priority-close" onClick={onClose}><X size={20} /></button>
         </div>
         <div className="priority-items">
           {list.items.map((item, index) => {

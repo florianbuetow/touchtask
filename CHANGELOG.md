@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Ultrafocus overlay drag preview — dragging an item now shows the full row instead of just the drag handle.
+- Ultrafocus overlay data loss when dismissed via the toolbar trigger button — unblurred edits are now flushed on every dismissal path via an unmount-time persist hook.
 - Ultrafocus overlay sluggishness — extracted overlay into its own component so the per-second timer tick re-renders only the overlay (not the entire 9000-line App), and the interval is unmounted when the overlay closes. Task and estimate inputs now persist to localStorage on blur (or Enter) instead of every keystroke; closing the overlay flushes any unsaved changes so newly added entries are still saved.
 - Completed habit pills now have proper margin (1rem) above the blocks section instead of zero gap.
 
