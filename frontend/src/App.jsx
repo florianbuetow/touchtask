@@ -974,29 +974,36 @@ function PriorityOverlay({ initialList, onClose, onPersist }) {
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDrop={(e) => handleDrop(e, index)}
               >
-                <input
-                  type="text"
-                  className="priority-estimate"
-                  value={item.estimate || ''}
-                  onFocus={() => {
-                    estimateBeforeFocus.current = item.estimate || ''
-                    updateItemLocal(item.id, { estimate: '' })
-                  }}
-                  onChange={(e) => updateItemLocal(item.id, { estimate: e.target.value })}
-                  onBlur={(e) => {
-                    const raw = e.target.value.trim()
-                    if (!raw) {
-                      updateItemPersist(item.id, { estimate: estimateBeforeFocus.current })
-                    } else {
-                      const minutes = parseEstimateToMinutes(raw)
-                      updateItemPersist(item.id, { estimate: minutes > 0 ? formatMinutesToHHMM(minutes) : '' })
-                    }
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
-                  placeholder="00:00"
-                  disabled={item.finished}
-                />
-                <span className="priority-actual">{formatMs(liveMs)}</span>
+                <div className="priority-field">
+                  <input
+                    type="text"
+                    className="priority-estimate"
+                    title="hh:mm"
+                    value={item.estimate || ''}
+                    onFocus={() => {
+                      estimateBeforeFocus.current = item.estimate || ''
+                      updateItemLocal(item.id, { estimate: '' })
+                    }}
+                    onChange={(e) => updateItemLocal(item.id, { estimate: e.target.value })}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim()
+                      if (!raw) {
+                        updateItemPersist(item.id, { estimate: estimateBeforeFocus.current })
+                      } else {
+                        const minutes = parseEstimateToMinutes(raw)
+                        updateItemPersist(item.id, { estimate: minutes > 0 ? formatMinutesToHHMM(minutes) : '' })
+                      }
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                    placeholder="00:00"
+                    disabled={item.finished}
+                  />
+                  <span className="priority-unit">hh:mm</span>
+                </div>
+                <div className="priority-field">
+                  <span className="priority-actual" title="hh:mm">{formatMs(liveMs)}</span>
+                  <span className="priority-unit">hh:mm</span>
+                </div>
                 <input
                   type="text"
                   className="priority-text"
