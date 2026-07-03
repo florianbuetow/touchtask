@@ -834,6 +834,8 @@ function PriorityOverlay({ initialList, onClose, onPersist }) {
   listRef.current = list
   const onPersistRef = useRef(onPersist)
   onPersistRef.current = onPersist
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   useEffect(() => () => {
     // Defer to a microtask: cleanup runs during the parent re-render that unmounts us,
     // and onPersist calls setState on App. Calling it inline triggers React's
@@ -851,6 +853,19 @@ function PriorityOverlay({ initialList, onClose, onPersist }) {
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runningKey])
+
+  // Escape closes Ultrafocus, but only when no task is in progress — a running
+  // timer holds the overlay open so an accidental keypress can't dismiss it.
+  // Refs keep this subscribed once while always reading the latest list/onClose.
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key !== 'Escape') return
+      if (listRef.current.items.some(item => item.runningSince)) return
+      onCloseRef.current()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Update local state and persist (for discrete actions: add/delete/start/finish/reorder/blur).
   // Compute next from the ref so we always read the latest committed state, then call setState
