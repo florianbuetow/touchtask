@@ -3982,6 +3982,253 @@
 }
 
 /* ============================================
+   STUDY TRACKER DRAWER
+   ============================================ */
+
+.study-tracker-drawer {
+    position: fixed;
+    bottom: 0;
+    min-height: 66vh;
+    max-height: calc(100vh - 80px);
+    width: fit-content;
+    min-width: var(--habits-pane-width, 300px);
+    max-width: calc(100vw - 32px);
+    z-index: 998;
+    background: var(--paper);
+    border-top-left-radius: var(--card-radius);
+    border-top-right-radius: var(--card-radius);
+    box-shadow: 0 -4px 20px rgb(0 0 0 / 15%);
+    transform: translateY(100%);
+    transition: transform 200ms ease-out, left 200ms ease-out;
+    overflow: hidden;
+    display: flex;
+    flex-flow: column;
+}
+
+.study-tracker-drawer.open {
+    transform: translateY(0);
+}
+
+.study-tree {
+    display: flex;
+    flex-flow: column;
+    gap: 2px;
+    min-width: 340px;
+}
+
+.study-node {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: grab;
+    user-select: none;
+}
+
+.study-node:hover {
+    background: var(--paper-dark);
+    border-color: var(--rule);
+}
+
+.study-node:active {
+    cursor: grabbing;
+}
+
+.study-node.active {
+    border-color: #2f80c8;
+    background: rgb(47 128 200 / 12%);
+    box-shadow: inset 0 0 0 1px rgb(47 128 200 / 45%);
+}
+
+.study-node.completed .study-node-name {
+    color: var(--muted);
+    text-decoration: line-through;
+}
+
+.study-node.completed .study-node-time {
+    color: var(--muted);
+    font-weight: 400;
+}
+
+.study-node.completed .study-node-toggle {
+    opacity: 0.5;
+}
+
+.study-node-toggle {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0;
+}
+
+.study-node-toggle svg {
+    transition: transform 150ms ease;
+}
+
+.study-node-toggle.expanded svg {
+    transform: rotate(90deg);
+}
+
+.study-node-toggle.leaf {
+    cursor: default;
+}
+
+.study-node-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.study-node-link {
+    margin-left: 6px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.study-node-link:hover {
+    text-decoration: underline;
+}
+
+.study-node-time {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    min-width: 46px;
+}
+
+.study-node-time.has-time {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* Actions overlay the right edge of the row so revealing them on hover
+   never changes the row's width (no reflow of the name/time). */
+.study-node-actions {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 2px;
+    padding-left: 12px;
+    background: var(--paper-dark);
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.study-node:hover .study-node-actions,
+.study-node:focus-within .study-node-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.study-node-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0;
+}
+
+.study-node-btn:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+}
+
+.study-node-btn.done {
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.study-drawer-footer {
+    flex-shrink: 0;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.study-pin-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--rule);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.study-pin-btn:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+}
+
+.study-pin-btn.pinned {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--paper);
+}
+
+.study-node-edit {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.study-node-edit-name,
+.study-node-edit-url {
+    font-size: 0.8rem;
+    padding: 3px 6px;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: inherit;
+}
+
+.study-node-edit-name {
+    flex: 1;
+    min-width: 80px;
+}
+
+.study-node-edit-url {
+    flex: 1.4;
+    min-width: 120px;
+}
+
+/* ============================================
    WHITEBOARD DRAWER
    ============================================ */
 

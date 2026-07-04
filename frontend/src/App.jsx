@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GripVertical, Headphones, HeadphoneOff, List, Plus, Quote, RotateCcw, Settings, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, TriangleAlert, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, Worm, X } from 'lucide-react'
+import { ArrowBigLeftDash, ArrowBigRightDash, BarChart3, Bell, BellOff, BellRing, Brain, Captions, CaptionsOff, CheckCircle2, ChevronRight, Coffee, Copy, Crosshair, DoorClosed, DoorOpen, Eye, EyeOff, FishSymbol, Globe, GlobeLock, GraduationCap, GripVertical, Headphones, HeadphoneOff, List, Plus, Quote, RotateCcw, Settings, ShieldCheck, Maximize2, Menu, MicVocal, Minimize2, NotebookPen, Pen, Pencil, Pin, PinOff, Phone, PhoneOff, Power, PowerOff, Recycle, Sticker, SwatchBook, Timer, Columns4, CalendarCheck, LayoutList, Eraser, TriangleAlert, Undo2, Redo2, Trash2, Volume2, VolumeOff, Wifi, WifiOff, Worm, X } from 'lucide-react'
 import './App.css'
 import { getStroke } from 'perfect-freehand'
 
@@ -185,6 +185,8 @@ const STORAGE_KEYS = {
   REMINDERS: 'touchtask_reminders',
   MEETINGS: 'touchtask_meetings',
   HABIT_TRACKER: 'touchtask_habit_tracker',
+  STUDY_TRACKER: 'touchtask_study_tracker',
+  STUDY_PINNED: 'touchtask_study_pinned',
   PROJECT_BOARD: 'touchtask_project_board',
   PROJECT_REGISTRY: 'touchtask_project_registry',
   THEMES: 'touchtask_themes',
@@ -649,6 +651,135 @@ const saveHabitTracker = (data) => {
   localStorage.setItem(STORAGE_KEYS.HABIT_TRACKER, JSON.stringify(data))
 }
 
+// ============================================
+// STUDY TRACKER
+// Tree of study targets. Each node stores only its OWN logged minutes;
+// the time shown for a node is aggregated on the fly from its descendants.
+// ============================================
+
+const makeStudyNode = (name) => ({
+  id: generateId(),
+  name,
+  url: '',
+  expanded: true,
+  completed: false,
+  time_logged_minutes: 0,
+  children: []
+})
+
+// Rebuild the tree, applying fn to every node (children rebuilt first).
+const mapStudyNodes = (nodes, fn) =>
+  (nodes || []).map(node => fn({ ...node, children: mapStudyNodes(node.children, fn) }))
+
+// Find a node by id anywhere in the tree.
+const findStudyNode = (nodes, id) => {
+  for (const node of (nodes || [])) {
+    if (node.id === id) return node
+    const found = findStudyNode(node.children, id)
+    if (found) return found
+  }
+  return null
+}
+
+// Remove a node (and its subtree) by id.
+const removeStudyNode = (nodes, id) =>
+  (nodes || [])
+    .filter(node => node.id !== id)
+    .map(node => ({ ...node, children: removeStudyNode(node.children, id) }))
+
+// A node's own minutes plus every descendant's minutes.
+const aggregateStudyTime = (node) =>
+  (node.time_logged_minutes || 0) +
+  (node.children || []).reduce((sum, child) => sum + aggregateStudyTime(child), 0)
+
+const getDefaultStudyTracker = () => {
+  // Concise builder: name + optional url / minutes / expanded / done / children.
+  const node = (name, opts = {}) => ({
+    ...makeStudyNode(name),
+    url: opts.url || '',
+    time_logged_minutes: opts.min || 0,
+    expanded: opts.expanded !== false,
+    completed: opts.done || false,
+    children: opts.children || []
+  })
+  return {
+    nodes: [
+      node('Certifications', {
+        children: [
+          node('AWS', {
+            children: [
+              node('Solutions Architect Associate', { min: 340, url: 'https://aws.amazon.com/certification/certified-solutions-architect-associate/', done: true }),
+              node('Developer Associate', { min: 180 }),
+              node('SysOps Administrator', { min: 95 })
+            ]
+          }),
+          node('Kubernetes', {
+            children: [
+              node('CKA – Certified Administrator', { min: 260, url: 'https://www.cncf.io/certification/cka/' }),
+              node('CKAD – Application Developer', { min: 120 })
+            ]
+          }),
+          node('Security', {
+            children: [
+              node('CompTIA Security+', { min: 150, url: 'https://www.comptia.org/certifications/security' }),
+              node('CISSP', { min: 60 })
+            ]
+          })
+        ]
+      }),
+      node('Degree – M.Sc. Computer Science', {
+        children: [
+          node('Core Courses', {
+            children: [
+              node('Discrete Mathematics', { min: 220, done: true }),
+              node('Algorithms & Data Structures', { min: 410, url: 'https://www.coursera.org/specializations/algorithms' }),
+              node('Operating Systems', { min: 175 })
+            ]
+          }),
+          node('Electives', {
+            children: [
+              node('Machine Learning', { min: 300, url: 'https://www.coursera.org/learn/machine-learning' }),
+              node('Distributed Systems', { min: 140 })
+            ]
+          }),
+          node('Thesis', {
+            expanded: false,
+            children: [
+              node('Literature Review', { min: 90 }),
+              node('Implementation', { min: 0 })
+            ]
+          })
+        ]
+      }),
+      node('Languages', {
+        children: [
+          node('Spanish', {
+            children: [
+              node('Duolingo Streak', { min: 480, url: 'https://www.duolingo.com/' }),
+              node('Grammar Practice', { min: 130 })
+            ]
+          }),
+          node('Japanese', { min: 75 })
+        ]
+      })
+    ]
+  }
+}
+
+const loadStudyTracker = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.STUDY_TRACKER)
+    return data ? JSON.parse(data) : { nodes: [] }
+  } catch (e) {
+    console.error('Error loading study tracker:', e)
+    return { nodes: [] }
+  }
+}
+
+const saveStudyTracker = (data) => {
+  localStorage.setItem(STORAGE_KEYS.STUDY_TRACKER, JSON.stringify(data))
+}
+
 const loadProjectBoard = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.PROJECT_BOARD)
@@ -1089,6 +1220,7 @@ function App() {
   const [reminders, setReminders] = useState([])
   const [meetings, setMeetings] = useState({ date: getTodayString(), items: [] })
   const [habitTracker, setHabitTracker] = useState({ habits: [] })
+  const [studyTracker, setStudyTracker] = useState({ nodes: [] })
   const [projectBoard, setProjectBoard] = useState({ projects: [] })
   const [projectRegistry, setProjectRegistry] = useState([])
   const [themes, setThemes] = useState([])
@@ -1598,6 +1730,17 @@ function App() {
   const [editingHabit, setEditingHabit] = useState(null)
   const habitsSectionRef = useRef(null)
   const habitDrawerRef = useRef(null)
+
+  // Study tracker drawer state
+  const [studyDrawerPinned, setStudyDrawerPinned] = useState(() => {
+    try { return localStorage.getItem(STORAGE_KEYS.STUDY_PINNED) === 'true' } catch { return false }
+  })
+  const [studyDrawerOpen, setStudyDrawerOpen] = useState(studyDrawerPinned) // a pinned drawer opens on load
+  const studyDrawerRef = useRef(null)
+  const studyDrawerWasOpenRef = useRef(false)
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEYS.STUDY_PINNED, String(studyDrawerPinned)) } catch { /* ignore */ }
+  }, [studyDrawerPinned])
   const secondDrawerRef = useRef(null)
   const [triggerLeft, setTriggerLeft] = useState(null)
 
@@ -1646,6 +1789,8 @@ function App() {
       console.log('TouchTask: Meetings loaded', loadedMeetings)
       const loadedHabitTracker = loadHabitTracker()
       console.log('TouchTask: Habit tracker loaded', loadedHabitTracker)
+      const loadedStudyTracker = loadStudyTracker()
+      console.log('TouchTask: Study tracker loaded', loadedStudyTracker)
       let loadedProjectBoard = loadProjectBoard()
       console.log('TouchTask: Project board loaded', loadedProjectBoard)
       let loadedRegistry = loadProjectRegistry()
@@ -1714,6 +1859,7 @@ function App() {
       setReminders(loadedReminders)
       setMeetings(loadedMeetings)
       setHabitTracker(loadedHabitTracker)
+      setStudyTracker(loadedStudyTracker)
       setProjectBoard(loadedProjectBoard)
       setProjectRegistry(loadedRegistry)
       setThemes(loadedThemes)
@@ -1771,11 +1917,19 @@ function App() {
         const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - sdWidth - 16))
         sd.style.left = `${clampedLeft}px`
       }
+      // Center study drawer on habits pane, clamped to viewport
+      const std = studyDrawerRef.current
+      if (std) {
+        const stdWidth = std.offsetWidth
+        const idealLeft = paneCenter - stdWidth / 2
+        const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - stdWidth - 16))
+        std.style.left = `${clampedLeft}px`
+      }
     }
     updatePosition()
     window.addEventListener('resize', updatePosition)
     return () => window.removeEventListener('resize', updatePosition)
-  }, [habitDrawerOpen, secondDrawerOpen, showStickyNotes, loading])
+  }, [habitDrawerOpen, secondDrawerOpen, studyDrawerOpen, showStickyNotes, loading])
 
   // Close habit drawer on click outside (project board only toggles via its button)
   useEffect(() => {
@@ -1788,6 +1942,17 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [habitDrawerOpen])
 
+  // Close study drawer on click outside (unless pinned)
+  useEffect(() => {
+    if (!studyDrawerOpen || studyDrawerPinned) return
+    const handleClickOutside = (e) => {
+      if (e.target.closest('.study-tracker-drawer') || e.target.closest('.drawer-trigger') || e.target.closest('.modal-overlay') || e.target.closest('.priority-overlay')) return
+      setStudyDrawerOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [studyDrawerOpen, studyDrawerPinned])
+
   // Sticky notes keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1797,7 +1962,7 @@ function App() {
         setShowStickyNotes(prev => {
           const opening = !prev
           if (opening) {
-            setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false)
+            setHabitDrawerOpen(false); setStudyDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false)
             if (stickyNotes.length === 0) {
               const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
               const y = window.innerHeight / 2 - 150 + (Math.random() - 0.5) * 100
@@ -1823,6 +1988,8 @@ function App() {
           setWhiteboardDrawerOpen(false)
         } else if (habitDrawerOpen) {
           setHabitDrawerOpen(false)
+        } else if (studyDrawerOpen && !studyDrawerPinned) {
+          setStudyDrawerOpen(false)
         } else if (secondDrawerOpen) {
           setSecondDrawerOpen(false)
         }
@@ -1831,7 +1998,7 @@ function App() {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showStickyNotes, editingNoteId, stickyNotes, habitDrawerOpen, secondDrawerOpen, whiteboardDrawerOpen])
+  }, [showStickyNotes, editingNoteId, stickyNotes, habitDrawerOpen, studyDrawerOpen, studyDrawerPinned, secondDrawerOpen, whiteboardDrawerOpen])
 
   // Adjust sticky note positions on resize when visible
   useEffect(() => {
@@ -2191,6 +2358,7 @@ function App() {
       reminders: reminders,
       meetings: meetings.items,
       habitTracker: habitTracker.habits,
+      studyTracker: studyTracker.nodes,
       projectBoard: projectBoard.projects,
       projectRegistry: projectRegistry,
       themes: themes,
@@ -2285,6 +2453,11 @@ function App() {
     const loadedHabitTracker = { habits: pendingLoadData.habitTracker || [] }
     saveHabitTracker(loadedHabitTracker)
     setHabitTracker(loadedHabitTracker)
+
+    // Load study tracker
+    const loadedStudyTracker = { nodes: pendingLoadData.studyTracker || [] }
+    saveStudyTracker(loadedStudyTracker)
+    setStudyTracker(loadedStudyTracker)
 
     // Load project board
     let loadedProjectBoard = { projects: pendingLoadData.projectBoard || [] }
@@ -2436,6 +2609,11 @@ function App() {
     saveHabitTracker(emptyHabitTracker)
     setHabitTracker(emptyHabitTracker)
 
+    // Clear study tracker
+    const emptyStudyTracker = { nodes: [] }
+    saveStudyTracker(emptyStudyTracker)
+    setStudyTracker(emptyStudyTracker)
+
     // Clear project board
     const emptyProjectBoard = { projects: [] }
     saveProjectBoard(emptyProjectBoard)
@@ -2533,6 +2711,11 @@ function App() {
     const demoHabitTracker = getDefaultHabitTracker()
     saveHabitTracker(demoHabitTracker)
     setHabitTracker(demoHabitTracker)
+
+    // Load demo study tracker
+    const demoStudyTracker = getDefaultStudyTracker()
+    saveStudyTracker(demoStudyTracker)
+    setStudyTracker(demoStudyTracker)
 
     // Load demo project board
     const t = () => new Date().toISOString()
@@ -2946,6 +3129,79 @@ function App() {
   const closeHabitModal = () => {
     setHabitModalOpen(false)
     setEditingHabit(null)
+  }
+
+  // ============================================
+  // STUDY TRACKER HANDLERS
+  // ============================================
+
+  const updateStudyTracker = (updater) => {
+    setStudyTracker(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      saveStudyTracker(next)
+      return next
+    })
+  }
+
+  const addStudyRoot = () => {
+    updateStudyTracker(prev => ({ ...prev, nodes: [...prev.nodes, makeStudyNode('New Target')] }))
+  }
+
+  const addStudyChild = (parentId) => {
+    updateStudyTracker(prev => ({
+      ...prev,
+      nodes: mapStudyNodes(prev.nodes, node =>
+        node.id === parentId
+          ? { ...node, expanded: true, children: [...node.children, makeStudyNode('New Item')] }
+          : node
+      )
+    }))
+  }
+
+  const editStudyNode = (id, { name, url }) => {
+    const trimmedName = name.trim()
+    if (!trimmedName) return
+    const trimmedUrl = (url || '').trim()
+    updateStudyTracker(prev => ({
+      ...prev,
+      nodes: mapStudyNodes(prev.nodes, node =>
+        node.id === id ? { ...node, name: trimmedName, url: trimmedUrl } : node
+      )
+    }))
+  }
+
+  const deleteStudyNode = (id) => {
+    updateStudyTracker(prev => ({ ...prev, nodes: removeStudyNode(prev.nodes, id) }))
+    // If the deleted node (or one of its descendants) was the active pomodoro task, clear it.
+    if (timerState.activeTaskId && findStudyNode([findStudyNode(studyTracker.nodes, id)].filter(Boolean), timerState.activeTaskId)) {
+      clearActiveTask()
+    }
+  }
+
+  const toggleStudyExpand = (id) => {
+    updateStudyTracker(prev => ({
+      ...prev,
+      nodes: mapStudyNodes(prev.nodes, node => (node.id === id ? { ...node, expanded: !node.expanded } : node))
+    }))
+  }
+
+  const toggleStudyComplete = (id) => {
+    updateStudyTracker(prev => ({
+      ...prev,
+      nodes: mapStudyNodes(prev.nodes, node => (node.id === id ? { ...node, completed: !node.completed } : node))
+    }))
+  }
+
+  // Credit pomodoro minutes to a study node's OWN time (ancestors aggregate on the fly).
+  const incrementStudyNodeTime = (id, minutes = 1) => {
+    updateStudyTracker(prev => ({
+      ...prev,
+      nodes: mapStudyNodes(prev.nodes, node =>
+        node.id === id
+          ? { ...node, time_logged_minutes: (node.time_logged_minutes || 0) + minutes }
+          : node
+      )
+    }))
   }
 
   // ============================================
@@ -3639,11 +3895,16 @@ function App() {
       return { ...prev, timeRemaining: remaining, elapsedWhileRunning: prev.totalTime - remaining }
     })
 
-    // Apply time credit outside the state updater (runs once, not doubled by StrictMode)
+    // Apply time credit outside the state updater (runs once, not doubled by StrictMode).
+    // Route to the study tracker when the active task is a study node (unique ids), else the kanban board.
     if (pendingTimeCredit.current) {
       const { taskId, minutes } = pendingTimeCredit.current
       pendingTimeCredit.current = null
-      incrementTaskTime(taskId, minutes)
+      if (findStudyNode(studyTracker.nodes, taskId)) {
+        incrementStudyNodeTime(taskId, minutes)
+      } else {
+        incrementTaskTime(taskId, minutes)
+      }
     }
 
     if (pomodoroExpiredRef.current) {
@@ -3752,6 +4013,32 @@ function App() {
     setDraggedTaskId(null)
     setDragSource(null)
     setDragSourceProjectId(null)
+  }
+
+  // Drag a study node onto the pomodoro timer to make it the active task.
+  const handleStudyDragStart = (e, nodeId) => {
+    setDraggedTaskId(nodeId)
+    setDragSource('study')
+    setDragSourceProjectId(null)
+    drawerOpenBeforeDrag.current = false // study drawer reopen is handled by handleStudyDragEnd
+    studyDrawerWasOpenRef.current = studyDrawerOpen
+    e.dataTransfer.effectAllowed = 'copyMove'
+    // Collapse the drawer once the drag leaves it so the pomodoro pane underneath can receive the drop.
+    const drawer = e.target.closest('.study-tracker-drawer')
+    if (drawer) {
+      const onLeave = (ev) => {
+        if (!drawer.contains(ev.relatedTarget)) {
+          setStudyDrawerOpen(false)
+          drawer.removeEventListener('dragleave', onLeave)
+        }
+      }
+      drawer.addEventListener('dragleave', onLeave)
+    }
+  }
+
+  const handleStudyDragEnd = () => {
+    if (studyDrawerWasOpenRef.current) setStudyDrawerOpen(true)
+    clearDragState()
   }
 
   const handleDropOnColumn = (e, column) => {
@@ -3866,7 +4153,11 @@ function App() {
 
   const completedCount = completedBlocks.length
 
+  const activeStudyNode = timerState.activeTaskId ? findStudyNode(studyTracker.nodes, timerState.activeTaskId) : null
   const activeTask = kanbanTasks?.tasks.find(t => t.id === timerState.activeTaskId)
+    || (activeStudyNode
+      ? { id: activeStudyNode.id, title: activeStudyNode.name, category: 'Study', time_logged_minutes: activeStudyNode.time_logged_minutes || 0 }
+      : undefined)
 
   const getTasksByColumn = (column) => {
     const tasks = kanbanTasks?.tasks.filter(t => t.column === column) || []
@@ -5132,7 +5423,7 @@ function App() {
             onClick={() => {
               const opening = !showStickyNotes
               setShowStickyNotes(opening)
-              setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false)
+              setHabitDrawerOpen(false); setStudyDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false)
               if (opening) {
                 if (stickyNotes.length === 0) {
                   const x = window.innerWidth / 2 - 150 + (Math.random() - 0.5) * 100
@@ -5150,28 +5441,35 @@ function App() {
           </button>
           <button
             className={`drawer-trigger ${whiteboardDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setWhiteboardDrawerOpen(!whiteboardDrawerOpen); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setShowStickyNotes(false) }}
+            onClick={() => { setWhiteboardDrawerOpen(!whiteboardDrawerOpen); setHabitDrawerOpen(false); setStudyDrawerOpen(false); setSecondDrawerOpen(false); setShowStickyNotes(false) }}
             title={whiteboardDrawerOpen ? 'Close whiteboard' : 'Open whiteboard'}
           >
             <Pen size={18} />
           </button>
           <button
             className={`drawer-trigger ${habitDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
+            onClick={() => { setHabitDrawerOpen(!habitDrawerOpen); setStudyDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
             title={habitDrawerOpen ? 'Close habit tracker' : 'Open habit tracker'}
           >
             <BarChart3 size={18} />
           </button>
           <button
+            className={`drawer-trigger ${studyDrawerOpen ? 'active' : ''}`}
+            onClick={() => { setStudyDrawerOpen(!studyDrawerOpen); setHabitDrawerOpen(false); setSecondDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
+            title={studyDrawerOpen ? 'Close study tracker' : 'Open study tracker'}
+          >
+            <GraduationCap size={18} />
+          </button>
+          <button
             className={`drawer-trigger ${secondDrawerOpen ? 'active' : ''}`}
-            onClick={() => { setSecondDrawerOpen(!secondDrawerOpen); setHabitDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
+            onClick={() => { setSecondDrawerOpen(!secondDrawerOpen); setHabitDrawerOpen(false); setStudyDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
             title={secondDrawerOpen ? 'Close pane' : 'Open pane'}
           >
             <Columns4 size={18} />
           </button>
           <button
             className={`drawer-trigger ${priorityListOpen ? 'active' : ''}`}
-            onClick={() => { setPriorityListOpen(!priorityListOpen); setSecondDrawerOpen(false); setHabitDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
+            onClick={() => { setPriorityListOpen(!priorityListOpen); setSecondDrawerOpen(false); setHabitDrawerOpen(false); setStudyDrawerOpen(false); setWhiteboardDrawerOpen(false); setShowStickyNotes(false) }}
             title={priorityListOpen ? 'Close priority list' : 'Open priority list'}
           >
             <TriangleAlert size={18} />
@@ -5209,6 +5507,47 @@ function App() {
             onToggleEntry={toggleHabitEntry}
             onEditHabit={openEditHabit}
           />
+        </div>
+      </div>
+
+      {/* Study Tracker Drawer */}
+      <div
+        ref={studyDrawerRef}
+        className={`study-tracker-drawer ${studyDrawerOpen ? 'open' : ''}`}
+      >
+        <div className="habit-tracker-drawer-header">
+          <h3 className="habit-tracker-drawer-title">Study <span>Tracker</span></h3>
+          <button
+            className={`study-pin-btn ${studyDrawerPinned ? 'pinned' : ''}`}
+            onClick={() => setStudyDrawerPinned(p => !p)}
+            title={studyDrawerPinned ? 'Unpin — let the drawer close normally' : 'Pin — keep the drawer open while you work'}
+            aria-label={studyDrawerPinned ? 'Unpin study tracker' : 'Pin study tracker open'}
+            aria-pressed={studyDrawerPinned}
+          >
+            {studyDrawerPinned ? <Pin size={16} /> : <PinOff size={16} />}
+          </button>
+        </div>
+        <div className="habit-tracker-drawer-body">
+          <StudyTrackerDrawer
+            nodes={studyTracker.nodes}
+            activeTaskId={timerState.activeTaskId}
+            onToggleExpand={toggleStudyExpand}
+            onToggleComplete={toggleStudyComplete}
+            onAddChild={addStudyChild}
+            onDeleteNode={deleteStudyNode}
+            onEditNode={editStudyNode}
+            onDragStart={handleStudyDragStart}
+            onDragEnd={handleStudyDragEnd}
+          />
+        </div>
+        <div className="study-drawer-footer">
+          <button
+            className="btn btn-secondary"
+            onClick={addStudyRoot}
+            style={{ fontSize: '0.65rem', padding: '0.4rem 0.8rem' }}
+          >
+            + Add
+          </button>
         </div>
       </div>
 
@@ -7130,6 +7469,126 @@ function HabitTrackerDrawer({ habits, onToggleEntry, onEditHabit }) {
         </div>
       ))}
       <div className="habit-tracker-row habit-tracker-spacer-row" />
+    </div>
+  )
+}
+
+// ============================================
+// STUDY TRACKER DRAWER COMPONENT
+// ============================================
+
+function StudyTrackerDrawer({ nodes, activeTaskId, onToggleExpand, onToggleComplete, onAddChild, onDeleteNode, onEditNode, onDragStart, onDragEnd }) {
+  const [editingId, setEditingId] = useState(null)
+  const [draftName, setDraftName] = useState('')
+  const [draftUrl, setDraftUrl] = useState('')
+
+  const startEdit = (node) => {
+    setEditingId(node.id)
+    setDraftName(node.name)
+    setDraftUrl(node.url || '')
+  }
+  const commitEdit = () => {
+    if (editingId) onEditNode(editingId, { name: draftName, url: draftUrl })
+    setEditingId(null)
+  }
+  const cancelEdit = () => setEditingId(null)
+
+  if (nodes.length === 0) {
+    return (
+      <div className="habit-tracker-empty">
+        No study targets yet. Click &quot;+ Add&quot; to create one.
+      </div>
+    )
+  }
+
+  const renderNode = (node, depth) => {
+    const hasChildren = node.children && node.children.length > 0
+    const aggregated = aggregateStudyTime(node)
+    const isEditing = editingId === node.id
+    const isActive = node.id === activeTaskId
+    return (
+      <div key={node.id} className="study-node-group">
+        <div
+          className={`study-node ${isActive ? 'active' : ''} ${node.completed ? 'completed' : ''}`}
+          style={{ paddingLeft: `${depth * 18 + 8}px` }}
+          draggable={!isEditing}
+          onDragStart={(e) => onDragStart(e, node.id)}
+          onDragEnd={onDragEnd}
+        >
+          <button
+            className={`study-node-toggle ${hasChildren ? '' : 'leaf'} ${node.expanded ? 'expanded' : ''}`}
+            onClick={() => hasChildren && onToggleExpand(node.id)}
+            aria-label={hasChildren ? (node.expanded ? 'Collapse children' : 'Expand children') : 'No children'}
+            tabIndex={hasChildren ? 0 : -1}
+          >
+            {hasChildren && <ChevronRight size={14} />}
+          </button>
+
+          {isEditing ? (
+            <div className="study-node-edit">
+              <input
+                className="study-node-edit-name"
+                value={draftName}
+                autoFocus
+                aria-label="Study target name"
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                placeholder="Name"
+              />
+              <input
+                className="study-node-edit-url"
+                value={draftUrl}
+                aria-label="Study target link (optional)"
+                onChange={(e) => setDraftUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                placeholder="https://… (optional link)"
+              />
+              <button className="study-node-btn" onClick={commitEdit} title="Save" aria-label="Save"><Plus size={12} style={{ transform: 'rotate(45deg)' }} /></button>
+            </div>
+          ) : (
+            <>
+              <span
+                className="study-node-name"
+                onClick={() => hasChildren && onToggleExpand(node.id)}
+                title={node.name}
+              >
+                {node.name}
+                {node.url && (
+                  <a
+                    className="study-node-link"
+                    href={node.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    onDragStart={(e) => e.preventDefault()}
+                    draggable={false}
+                  >
+                    [Link]
+                  </a>
+                )}
+              </span>
+              <span className={`study-node-time ${aggregated > 0 ? 'has-time' : ''}`}>{formatTime(aggregated)}</span>
+              <span className="study-node-actions">
+                <button className={`study-node-btn ${node.completed ? 'done' : ''}`} onClick={() => onToggleComplete(node.id)} title={node.completed ? 'Mark as not done' : 'Mark as completed'} aria-label={node.completed ? 'Mark as not done' : 'Mark as completed'} aria-pressed={node.completed}><CheckCircle2 size={12} /></button>
+                <button className="study-node-btn" onClick={() => startEdit(node)} title="Edit" aria-label="Edit study target"><Pencil size={12} /></button>
+                <button className="study-node-btn" onClick={() => onAddChild(node.id)} title="Add child" aria-label="Add child target"><Plus size={12} /></button>
+                <button className="study-node-btn" onClick={() => onDeleteNode(node.id)} title="Delete" aria-label="Delete study target"><Trash2 size={12} /></button>
+              </span>
+            </>
+          )}
+        </div>
+        {hasChildren && node.expanded && (
+          <div className="study-node-children">
+            {node.children.map(child => renderNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="study-tree">
+      {nodes.map(node => renderNode(node, 0))}
     </div>
   )
 }
